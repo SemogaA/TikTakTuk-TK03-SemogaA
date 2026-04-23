@@ -424,3 +424,24 @@ def get_all_users():
         """)
 
     return dictfetchall(cursor)
+
+
+def get_all_organizers(session_id):
+    """
+    narik daftar semua organizer buat diisi ke dropdown form create event.
+    note: hanya admin yang berhak narik data ini.
+    """
+    with connection.cursor() as cursor:
+        user_id = validate_session(session_id)
+        roles = get_user_roles_by_session(session_id)
+
+        if not user_id or 'administrator' not in roles:
+            return None
+
+        cursor.execute("""
+            SELECT organizer_id, organizer_name 
+            FROM ORGANIZER 
+            ORDER BY organizer_name ASC;
+        """)
+
+        return dictfetchall(cursor)
