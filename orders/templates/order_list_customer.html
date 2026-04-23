@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Daftar Order – TikTakTuk</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+    * { font-family: 'Plus Jakarta Sans', sans-serif; }
+    .fade-in { animation: fadeIn 0.3s ease both; }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+    .stat-card { transition: box-shadow 0.2s, transform 0.2s; }
+    .stat-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.08); transform: translateY(-1px); }
+    .row-hover { transition: background 0.15s; }
+    .row-hover:hover { background: #f8faff; }
+    .badge-lunas     { background:#dcfce7; color:#16a34a; }
+    .badge-pending   { background:#fef9c3; color:#ca8a04; }
+    .badge-cancelled { background:#fee2e2; color:#dc2626; }
+    input:focus, select:focus { outline:none; border-color:#3b82f6; box-shadow:0 0 0 3px rgba(59,130,246,0.12); }
+  </style>
+</head>
+<body class="min-h-screen bg-[#f0f4f9] px-4 py-8">
+<div class="max-w-5xl mx-auto fade-in">
+
+  <!-- Header -->
+  <div class="mb-6">
+    <h1 class="text-2xl font-extrabold text-gray-900 tracking-tight">Daftar Order</h1>
+    <p class="text-sm text-gray-500 mt-0.5">Riwayat pembelian tiket Anda</p>
+  </div>
+
+  <!-- Stat Cards -->
+  <div class="grid grid-cols-3 gap-4 mb-6">
+    <div class="stat-card bg-white rounded-2xl shadow-sm px-5 py-4">
+      <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Total Order</p>
+      <p class="text-2xl font-extrabold text-gray-900">2</p>
+    </div>
+    <div class="stat-card bg-white rounded-2xl shadow-sm px-5 py-4">
+      <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Lunas</p>
+      <p class="text-2xl font-extrabold text-green-600">2</p>
+    </div>
+    <div class="stat-card bg-white rounded-2xl shadow-sm px-5 py-4">
+      <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Pending</p>
+      <p class="text-2xl font-extrabold text-yellow-600">0</p>
+    </div>
+  </div>
+
+  <!-- Filter -->
+  <div class="bg-white rounded-2xl shadow-sm px-5 py-4 flex flex-col sm:flex-row gap-3 mb-4">
+    <div class="relative flex-1">
+      <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"/>
+      </svg>
+      <input type="text" id="search" placeholder="Cari order ID..." oninput="filter()"
+        class="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-800 placeholder-gray-400 transition" />
+    </div>
+    <select id="status" onchange="filter()"
+      class="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 bg-white cursor-pointer transition">
+      <option value="">Semua Status</option>
+      <option value="Paid">Lunas</option>
+      <option value="Pending">Pending</option>
+      <option value="Cancelled">Dibatalkan</option>
+    </select>
+  </div>
+
+  <!-- Table -->
+  <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="border-b border-gray-100">
+          <th class="text-left px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Order ID</th>
+          <th class="text-left px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Tanggal</th>
+          <th class="text-left px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Status</th>
+          <th class="text-right px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Total</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    <div id="empty" class="hidden text-center py-16 text-gray-400">
+      <p class="text-sm font-medium">Tidak ada order ditemukan</p>
+    </div>
+  </div>
+
+</div>
+<script>
+  const orders = [
+    { id: 'ord_001', tanggal: '2024-04-10 14:32', status: 'Paid',    total: 1200000 },
+    { id: 'ord_002', tanggal: '2024-04-11 09:15', status: 'Paid',    total: 150000  },
+  ];
+
+  function fmt(n) { return 'Rp ' + n.toLocaleString('id-ID'); }
+
+  function badge(s) {
+    const m = { Paid:['badge-lunas','● LUNAS'], Pending:['badge-pending','● PENDING'], Cancelled:['badge-cancelled','● DIBATALKAN'] };
+    const [c,l] = m[s] || ['bg-gray-100 text-gray-500', s];
+    return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${c}">${l}</span>`;
+  }
+
+  function filter() {
+    const q = document.getElementById('search').value.toLowerCase();
+    const s = document.getElementById('status').value;
+    const filtered = orders.filter(o =>
+      o.id.toLowerCase().includes(q) && (!s || o.status === s)
+    );
+    render(filtered);
+  }
+
+  function render(list) {
+    const tbody = document.getElementById('tbody');
+    const empty = document.getElementById('empty');
+    if (!list.length) { tbody.innerHTML = ''; empty.classList.remove('hidden'); return; }
+    empty.classList.add('hidden');
+    tbody.innerHTML = list.map(o => `
+      <tr class="row-hover border-b border-gray-50 last:border-0">
+        <td class="px-5 py-3.5 font-mono text-xs text-gray-600 font-semibold">${o.id}</td>
+        <td class="px-5 py-3.5 text-gray-500 text-xs">${o.tanggal}</td>
+        <td class="px-5 py-3.5">${badge(o.status)}</td>
+        <td class="px-5 py-3.5 text-right font-bold text-gray-900">${fmt(o.total)}</td>
+      </tr>`).join('');
+  }
+
+  render(orders);
+</script>
+</body>
+</html>

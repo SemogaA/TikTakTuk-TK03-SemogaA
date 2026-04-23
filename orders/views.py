@@ -23,3 +23,12 @@ def checkout(request):
         'seats':       seats,
         'is_reserved': True,
     })
+
+def order_list_customer(request):
+    return render(request, 'order_list_customer.html')
+
+def order_list_organizer(request):
+    return render(request, 'order_list_organizer.html')
+
+def order_list_admin(request):
+    return render(request, 'order_list_admin.html')
