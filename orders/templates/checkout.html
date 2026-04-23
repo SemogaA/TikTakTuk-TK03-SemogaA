@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Checkout Tiket – TikTakTuk</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+    * { font-family: 'Plus Jakarta Sans', sans-serif; }
+
+    .category-card { transition: all 0.2s ease; cursor: pointer; }
+    .category-card:hover { border-color: #3b82f6; background: #eff6ff; }
+    .category-card.selected { border-color: #3b82f6; background: #eff6ff; }
+
+    .seat-btn { transition: all 0.15s ease; }
+    .seat-btn:hover:not(.occupied) { background: #3b82f6; color: white; transform: scale(1.05); }
+    .seat-btn.selected { background: #3b82f6; color: white; }
+    .seat-btn.occupied { background: #e5e7eb; color: #9ca3af; cursor: not-allowed; }
+
+    .fade-in { animation: fadeIn 0.3s ease both; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .step-active { color: #3b82f6; font-weight: 600; }
+    .step-done   { color: #9ca3af; }
+    .step-sep    { color: #d1d5db; margin: 0 6px; }
+  </style>
+</head>
+
+<body class="min-h-screen bg-[#f0f4f9] px-4 py-6">
+
+  <!-- Header -->
+  <div class="max-w-5xl mx-auto mb-5 flex items-center justify-between">
+    <h1 class="text-xl font-extrabold text-gray-900 tracking-tight">Checkout Tiket</h1>
+    <!-- Breadcrumb step -->
+    <div class="flex items-center text-sm">
+      <span class="step-active">Pilih</span>
+      <span class="step-sep">›</span>
+      <span class="step-done">Bayar</span>
+      <span class="step-sep">›</span>
+      <span class="step-done">Selesai</span>
+    </div>
+  </div>
+
+  <div class="max-w-5xl mx-auto flex flex-col lg:flex-row gap-5">
+
+    <!-- Kolom kiri -->
+    <div class="flex-1 flex flex-col gap-4">
+
+      <!-- Event Info Card -->
+      <div class="bg-white rounded-2xl shadow-sm px-5 py-4 flex items-center gap-4">
+        <div class="w-12 h-12 rounded-xl bg-blue-500 flex items-center justify-center flex-shrink-0 text-white font-bold text-lg">
+          {{ event.event_title|first|upper }}
+        </div>
+        <div>
+          <p class="font-bold text-gray-900 text-base leading-tight">{{ event.event_title }}</p>
+          <p class="text-xs text-gray-500 mt-0.5">
+            {% for artist in event.artists %}{{ artist.name }}{% if not forloop.last %} · {% endif %}{% endfor %}
+          </p>
+          <p class="text-xs text-gray-400 mt-1">
+          📅 {{ event.event_datetime }} &nbsp;·&nbsp; 📍 {{ event.venue_name }}
+          </p>
+        </div>
+      </div>
+
+      <!-- Pilih Kategori Tiket -->
+      <div class="bg-white rounded-2xl shadow-sm px-5 py-5">
+        <p class="font-bold text-gray-900 text-sm mb-1">Pilih Kategori Tiket</p>
+        <p class="text-xs text-gray-400 mb-4">Setiap kategori memiliki fasilitas berbeda</p>
+
+        <div class="flex flex-col gap-2" id="category-list">
+          {% for cat in categories %}
+          <div
+            class="category-card border-2 border-gray-200 rounded-xl px-4 py-3 flex items-center justify-between"
+            data-cat-id="{{ cat.category_id }}"
+            data-cat-name="{{ cat.category_name }}"
+            data-cat-price="{{ cat.price }}"
+            onclick="selectCategory(this)"
+          >
+            <div>
+              <p class="font-semibold text-gray-800 text-sm">{{ cat.category_name }}</p>
+              <p class="text-xs text-gray-400">Kuota: {{ cat.quota }} tiket</p>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="font-bold text-gray-800 text-sm">Rp {{ cat.price|floatformat:0 }}</span>
+              <div class="w-5 h-5 rounded-full border-2 border-gray-300 flex items-center justify-center check-icon">
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Jumlah Tiket + Pilih Kursi -->
+      <div class="flex gap-4">
+
+        <!-- Jumlah Tiket -->
+        <div class="bg-white rounded-2xl shadow-sm px-5 py-5 flex-1">
+          <p class="font-bold text-gray-900 text-sm mb-3">Jumlah Tiket</p>
+          <div class="flex items-center gap-4">
+            <button
+              onclick="changeQty(-1)"
+              class="w-9 h-9 rounded-lg border-2 border-gray-200 text-gray-600 font-bold text-lg flex items-center justify-center hover:border-blue-400 hover:text-blue-500 transition"
+            >−</button>
+            <span id="qty-display" class="text-2xl font-extrabold text-gray-900 w-8 text-center">1</span>
+            <button
+              onclick="changeQty(1)"
+              class="w-9 h-9 rounded-lg border-2 border-gray-200 text-gray-600 font-bold text-lg flex items-center justify-center hover:border-blue-400 hover:text-blue-500 transition"
+            >+</button>
+          </div>
+          <p class="text-xs text-gray-400 mt-2">Maks 10 tiket per transaksi</p>
+          <input type="hidden" id="qty-value" value="1" />
+        </div>
+
+        <!-- Pilih Kursi (hanya muncul jika reserved seating) -->
+        {% if is_reserved %}
+        <div class="bg-white rounded-2xl shadow-sm px-5 py-5 flex-1" id="seat-section">
+          <p class="font-bold text-gray-900 text-sm mb-3">Pilih Kursi</p>
+          <div class="flex flex-wrap gap-2" id="seat-grid">
+            {% for seat in seats %}
+            <button
+              class="seat-btn w-10 h-10 rounded-lg border-2 border-gray-200 text-xs font-semibold text-gray-700
+                     {% if seat.is_taken %}occupied{% endif %}"
+              data-seat-id="{{ seat.seat_id }}"
+              data-section="{{ seat.section }}"
+              onclick="toggleSeat(this)"
+              {% if seat.is_taken %}disabled{% endif %}
+            >
+              {{ seat.row_number }}{{ seat.seat_number }}
+            </button>
+            {% endfor %}
+          </div>
+          <p class="text-xs text-gray-400 mt-2" id="seat-hint">Pilih sesuai jumlah tiket</p>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Kode Promo -->
+      <div class="bg-white rounded-2xl shadow-sm px-5 py-5">
+        <p class="font-bold text-gray-900 text-sm mb-3">Kode Promo</p>
+        <div class="flex gap-2">
+          <input
+            type="text" id="promo-input" placeholder="CONTOH: TIKTAK20"
+            class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 placeholder-gray-400 uppercase
+                   focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition"
+          />
+          <button
+            onclick="applyPromo()"
+            class="bg-gray-900 hover:bg-gray-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition active:scale-95"
+          >
+            Terapkan
+          </button>
+        </div>
+        <p id="promo-msg" class="text-xs mt-1.5 hidden"></p>
+      </div>
+
+    </div><!-- /left column -->
+
+    <!-- Kolom kanan (ringkasan) -->
+    <div class="w-full lg:w-72 flex-shrink-0">
+      <div class="bg-white rounded-2xl shadow-sm px-5 py-5 sticky top-6">
+        <p class="font-bold text-gray-900 text-sm mb-4">Ringkasan Pesanan</p>
+
+        <div class="flex justify-between text-sm text-gray-500 mb-2">
+          <span id="summary-label">—</span>
+          <span id="summary-subtotal">Rp 0</span>
+        </div>
+        <div class="flex justify-between text-sm text-gray-500 mb-2">
+          <span>Biaya Layanan</span>
+          <span>Rp 0</span>
+        </div>
+        <div class="flex justify-between text-sm text-gray-500 mb-2 hidden" id="discount-row">
+          <span>Diskon Promo</span>
+          <span id="discount-display" class="text-green-600">- Rp 0</span>
+        </div>
+
+        <hr class="my-3 border-gray-100" />
+
+        <div class="flex justify-between font-extrabold text-gray-900 text-base mb-5">
+          <span>Total</span>
+          <span id="summary-total">Rp 0</span>
+        </div>
+
+        <!-- Hidden form yang di-submit ke Django -->
+          <form method="POST" action="#" id="checkout-form">          {% csrf_token %}
+          <input type="hidden" name="category_id"    id="f-cat-id" />
+          <input type="hidden" name="quantity"        id="f-qty" value="1" />
+          <input type="hidden" name="seat_ids"        id="f-seats" />
+          <input type="hidden" name="promo_code"      id="f-promo" />
+          <input type="hidden" name="total_amount"    id="f-total" />
+
+          <button
+            type="button"
+            onclick="submitOrder()"
+            class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-xl py-3 text-sm transition active:scale-95 shadow-md"
+          >
+            Bayar Sekarang
+          </button>
+        </form>
+
+        <p class="text-xs text-gray-400 text-center mt-3">
+          Konfirmasi tiket akan dikirim ke admin@example.com
+        </p>
+      </div>
+    </div>
+
+  </div><!-- /flex row -->
+
+  <script>
+    let selectedCatId    = null;
+    let selectedCatPrice = 0;
+    let selectedCatName  = '';
+    let qty              = 1;
+    let selectedSeats    = [];
+    let promoDiscount    = 0;   // nominal discount
+    let promoCode        = '';
+
+    // Category selection
+    function selectCategory(el) {
+      document.querySelectorAll('.category-card').forEach(c => {
+        c.classList.remove('selected');
+        c.querySelector('.check-icon').innerHTML = '';
+        c.querySelector('.check-icon').classList.remove('bg-blue-500','border-blue-500');
+      });
+      el.classList.add('selected');
+      el.querySelector('.check-icon').innerHTML =
+        '<svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>';
+      el.querySelector('.check-icon').classList.add('bg-blue-500','border-blue-500');
+
+      selectedCatId    = el.dataset.catId;
+      selectedCatPrice = parseFloat(el.dataset.catPrice);
+      selectedCatName  = el.dataset.catName;
+      selectedSeats    = [];  // reset seat picks
+
+      // update seat section filter by section matching category name
+      updateSeatSection();
+      updateSummary();
+    }
+
+    function changeQty(delta) {
+      const newQty = qty + delta;
+      if (newQty < 1 || newQty > 10) return;
+      qty = newQty;
+      document.getElementById('qty-display').textContent = qty;
+      document.getElementById('qty-value').value = qty;
+      document.getElementById('f-qty').value = qty;
+
+      // reset seat selection if qty changed
+      selectedSeats = [];
+      document.querySelectorAll('.seat-btn.selected').forEach(b => b.classList.remove('selected'));
+      updateSeatHint();
+      updateSummary();
+    }
+
+    // Seat 
+    function toggleSeat(btn) {
+      if (!selectedCatId) {
+        alert('Pilih kategori tiket terlebih dahulu.');
+        return;
+      }
+      const seatId = btn.dataset.seatId;
+      if (btn.classList.contains('selected')) {
+        btn.classList.remove('selected');
+        selectedSeats = selectedSeats.filter(s => s !== seatId);
+      } else {
+        if (selectedSeats.length >= qty) {
+          alert(`Kamu hanya bisa memilih ${qty} kursi.`);
+          return;
+        }
+        btn.classList.add('selected');
+        selectedSeats.push(seatId);
+      }
+      updateSeatHint();
+    }
+
+    function updateSeatSection() {
+      // Show/hide seat section based on reserved seating
+      const seatSection = document.getElementById('seat-section');
+      if (seatSection) {
+        seatSection.classList.remove('hidden');
+      }
+    }
+
+    function updateSeatHint() {
+      const hint = document.getElementById('seat-hint');
+      if (hint) {
+        hint.textContent = `Dipilih: ${selectedSeats.length} / ${qty} kursi`;
+      }
+    }
+
+    // Promo 
+    async function applyPromo() {
+      const code = document.getElementById('promo-input').value.trim().toUpperCase();
+      const msg  = document.getElementById('promo-msg');
+      if (!code) return;
+
+      // Kirim ke backend untuk validasi
+      try {
+        const res = await fetch(`/checkout/validate-promo/?code=${encodeURIComponent(code)}`);
+        const data = await res.json();
+        msg.classList.remove('hidden');
+
+        if (data.valid) {
+          promoCode     = code;
+          promoDiscount = data.discount_nominal; // backend hitung nominal diskon
+          msg.textContent   = `✓ Promo "${code}" berhasil diterapkan!`;
+          msg.className     = 'text-xs mt-1.5 text-green-600';
+          document.getElementById('discount-row').classList.remove('hidden');
+          updateSummary();
+        } else {
+          promoCode     = '';
+          promoDiscount = 0;
+          msg.textContent = 'Kode promo tidak valid.';
+          msg.className   = 'text-xs mt-1.5 text-red-500';
+          document.getElementById('discount-row').classList.add('hidden');
+          updateSummary();
+        }
+      } catch {
+        msg.classList.remove('hidden');
+        msg.textContent = 'Gagal memvalidasi promo.';
+        msg.className   = 'text-xs mt-1.5 text-red-500';
+      }
+    }
+
+    // Summary 
+    function fmt(n) {
+      return 'Rp ' + Math.round(n).toLocaleString('id-ID');
+    }
+
+    function updateSummary() {
+      const subtotal = selectedCatPrice * qty;
+      const total    = Math.max(0, subtotal - promoDiscount);
+
+      document.getElementById('summary-label').textContent    =
+        selectedCatName ? `${selectedCatName} × ${qty}` : '—';
+      document.getElementById('summary-subtotal').textContent = fmt(subtotal);
+      document.getElementById('summary-total').textContent    = fmt(total);
+      document.getElementById('discount-display').textContent = '- ' + fmt(promoDiscount);
+
+      // sync hidden inputs
+      document.getElementById('f-cat-id').value = selectedCatId || '';
+      document.getElementById('f-total').value  = total;
+      document.getElementById('f-promo').value  = promoCode;
+    }
+
+    // Submit 
+    function submitOrder() {
+      if (!selectedCatId) { alert('Pilih kategori tiket terlebih dahulu.'); return; }
+      if (qty < 1)        { alert('Jumlah tiket minimal 1.'); return; }
+
+      // Cek kursi jika reserved seating
+      const seatSection = document.getElementById('seat-section');
+      if (seatSection && !seatSection.classList.contains('hidden')) {
+        if (selectedSeats.length !== qty) {
+          alert(`Pilih tepat ${qty} kursi sebelum melanjutkan.`);
+          return;
+        }
+      }
+
+      document.getElementById('f-seats').value = selectedSeats.join(',');
+      document.getElementById('checkout-form').submit();
+    }
+  </script>
+
+</body>
+</html>
