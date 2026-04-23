@@ -4,9 +4,11 @@ from .utils import dictfetchall
 import bcrypt
 
 
-def register_user_atomic(username, password, role_name, profile_data):
+def register_user_atomic(username, email, password, role_name, profile_data):
     """
     ngehandle pendaftaran user sekaligus profile dalam satu transaksi.
+    profile_data: dict berisi {full_name, phone_number} atau {organizer_name}
+    contact_email otomatis ngambil dari input email utama.
     """
     hashed_password = bcrypt.hashpw(
         password.encode(), bcrypt.gensalt()).decode()
@@ -16,9 +18,9 @@ def register_user_atomic(username, password, role_name, profile_data):
             with connection.cursor() as cursor:
                 # Create User Account
                 cursor.execute("""
-                    INSERT INTO USER_ACCOUNT (username, password)
-                    VALUES (%s, %s) RETURNING user_id;
-                """, [username, hashed_password])
+                    INSERT INTO USER_ACCOUNT (username, email, password)
+                    VALUES (%s, %s, %s) RETURNING user_id;
+                """, [username, email, hashed_password])
                 user_id = cursor.fetchone()[0]
 
                 # Get Role ID & Assign Role
@@ -36,12 +38,12 @@ def register_user_atomic(username, password, role_name, profile_data):
                     cursor.execute("""
                         INSERT INTO CUSTOMER (full_name, phone_number, user_id)
                         VALUES (%s, %s, %s);
-                    """, [profile_data['full_name'], profile_data['phone_number'], user_id])
+                    """, [profile_data['full_name'], profile_data.get('phone_number'), user_id])
                 elif role_name == 'organizer':
                     cursor.execute("""
                         INSERT INTO ORGANIZER (organizer_name, contact_email, user_id)
                         VALUES (%s, %s, %s);
-                    """, [profile_data['organizer_name'], profile_data['contact_email'], user_id])
+                    """, [profile_data['organizer_name'], email, user_id])
 
                 return user_id
     except Exception as e:
@@ -49,10 +51,18 @@ def register_user_atomic(username, password, role_name, profile_data):
         return None
 
 
-def login_user(username, password):
+def login_user(identifier, password):
+    """
+    pengguna memasukkan EMAIL atau USERNAME beserta password.
+    identifier bisa berupa string email atau username.
+    """
     with connection.cursor() as cursor:
-        cursor.execute(
-            "SELECT user_id, password FROM USER_ACCOUNT WHERE username = %s;", [username])
+        # Cek ke database, apakah input cocok dengan email ATAU username
+        cursor.execute("""
+            SELECT user_id, password 
+            FROM USER_ACCOUNT 
+            WHERE email = %s OR username = %s;
+        """, [identifier, identifier])
         user = cursor.fetchone()
 
         if not user or not bcrypt.checkpw(password.encode(), user[1].encode()):
@@ -83,6 +93,32 @@ def login_user(username, password):
         roles = [row[0] for row in cursor.fetchall()]
 
     return {"session_id": str(session_id), "user_id": str(user_id), "roles": roles}
+
+
+def update_user_profile(session_id, profile_data):
+    with connection.cursor() as cursor:
+        user_id = validate_session(session_id)
+        roles = get_user_roles_by_session(session_id)
+        if not user_id:
+            return False
+
+        try:
+            if 'customer' in roles:
+                cursor.execute("""
+                    UPDATE CUSTOMER 
+                    SET full_name = %s, phone_number = %s 
+                    WHERE user_id = %s;
+                """, [profile_data['full_name'], profile_data.get('phone_number'), user_id])
+            elif 'organizer' in roles:
+                cursor.execute("""
+                    UPDATE ORGANIZER 
+                    SET organizer_name = %s, contact_email = %s 
+                    WHERE user_id = %s;
+                """, [profile_data['organizer_name'], profile_data.get('contact_email'), user_id])
+            return True
+        except Exception as e:
+            print(f"Error updating profile: {e}")
+            return False
 
 
 def get_dashboard_data(session_id):
@@ -370,7 +406,7 @@ def validate_session(session_id):
 def get_user_by_id(user_id):
     with connection.cursor() as cursor:
         cursor.execute("""
-            SELECT user_id, username
+            SELECT user_id, username, email
             FROM USER_ACCOUNT
             WHERE user_id = %s;
         """, [user_id])
@@ -383,7 +419,7 @@ def get_user_by_id(user_id):
 def get_all_users():
     with connection.cursor() as cursor:
         cursor.execute("""
-            SELECT user_id, username
+            SELECT user_id, username, email
             FROM USER_ACCOUNT;
         """)
 
