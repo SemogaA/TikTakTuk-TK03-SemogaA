@@ -12,7 +12,7 @@ def home_view(request):
     if session_id and user_service.validate_session(session_id):
         return redirect('dashboard')
 
-    return render(request, 'home.html')
+    return render(request, 'auth/home.html')
 
 
 def login_view(request):
@@ -34,9 +34,9 @@ def login_view(request):
                 'session_id', result['session_id'], max_age=86400)
             return response
         else:
-            return render(request, 'login.html', {'error': 'email/username atau password salah!'})
+            return render(request, 'auth/login.html', {'error': 'email/username atau password salah!'})
 
-    return render(request, 'login.html')
+    return render(request, 'auth/login.html')
 
 
 def register_view(request):
@@ -62,9 +62,9 @@ def register_view(request):
         if user_id:
             return redirect('login')
         else:
-            return render(request, 'register.html', {'error': 'registrasi gagal. username/email mungkin sudah terpakai.'})
+            return render(request, 'auth/register.html', {'error': 'registrasi gagal. username/email mungkin sudah terpakai.'})
 
-    return render(request, 'register.html')
+    return render(request, 'auth/register.html')
 
 
 def logout_view(request):
@@ -102,4 +102,4 @@ def dashboard_view(request):
         'username': dashboard_data['username']
     }
 
-    return render(request, 'dashboard.html', context)
+    return render(request, 'auth/dashboard.html', context)
