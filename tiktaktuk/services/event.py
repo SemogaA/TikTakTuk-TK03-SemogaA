@@ -1,4 +1,5 @@
-from django.db import connection, transaction
+import datetime
+from django.db import IntegrityError, connection, transaction
 from .utils import dictfetchall
 from .user import validate_session, get_user_role_by_session
 
@@ -7,8 +8,9 @@ def create_event(session_id, event_title, event_datetime, venue_id, description,
     with connection.cursor() as cursor:
         user_id = validate_session(session_id)
         role = get_user_role_by_session(session_id)
+
         if not user_id:
-            return None
+            return False, "Sesi tidak valid, silakan login kembali.", None
 
         # validasi Organizer
         if role == "organizer":
@@ -16,28 +18,26 @@ def create_event(session_id, event_title, event_datetime, venue_id, description,
                 "SELECT organizer_id FROM ORGANIZER WHERE user_id = %s;", [user_id])
             res = cursor.fetchone()
             if not res:
-                return None
+                return False, "Akun Anda tidak terdaftar sebagai Organizer.", None
             org_id_to_use = res[0]
         elif role == "administrator":
             if not organizer_id:
-                return None
+                return False, "Admin harus menentukan Organizer untuk event ini.", None
             org_id_to_use = organizer_id
         else:
-            return None
+            return False, "Anda tidak memiliki akses untuk membuat event.", None
 
-        # cek Kuota Tiket vs Kapasitas Venue
+        # validasi Kapasitas Venue
         cursor.execute(
             "SELECT capacity FROM VENUE WHERE venue_id = %s;", [venue_id])
         venue_cap = cursor.fetchone()
         if not venue_cap:
-            return None
+            return False, "Venue yang dipilih tidak ditemukan.", None
 
         total_quota_requested = sum(
-            tc['quota'] for tc in ticket_categories) if ticket_categories else 0
+            int(tc['quota']) for tc in ticket_categories) if ticket_categories else 0
         if total_quota_requested > venue_cap[0]:
-            print(
-                f"Error: Kuota tiket ({total_quota_requested}) melebihi kapasitas venue ({venue_cap[0]})!")
-            return None
+            return False, f"Gagal: Total kuota tiket ({total_quota_requested}) melebihi kapasitas maksimal venue ({venue_cap[0]}).", None
 
         try:
             with transaction.atomic():
@@ -63,18 +63,18 @@ def create_event(session_id, event_title, event_datetime, venue_id, description,
                             VALUES (%s, %s, %s, %s);
                         """, [tc['category_name'], tc['quota'], tc['price'], event_id])
 
-                return event_id
+                return True, f"Event '{event_title}' berhasil dibuat!", event_id
         except Exception as e:
-            print(f"Error creating event: {e}")
-            return None
+            return False, f"Terjadi kesalahan pada database: {str(e)}", None
 
 
-def update_event(session_id, event_id, event_title, event_datetime, venue_id, description, image_url, artists=None):
+def update_event(session_id, event_id, event_title, event_datetime, venue_id, description, image_url, artists=None, ticket_categories=None):
     with connection.cursor() as cursor:
         user_id = validate_session(session_id)
         role = get_user_role_by_session(session_id)
+
         if not user_id:
-            return False
+            return False, "Sesi tidak valid, silakan login kembali."
 
         try:
             with transaction.atomic():
@@ -88,14 +88,14 @@ def update_event(session_id, event_id, event_title, event_datetime, venue_id, de
                         "SELECT organizer_id FROM ORGANIZER WHERE user_id = %s;", [user_id])
                     res = cursor.fetchone()
                     if not res:
-                        return False
+                        return False, "Akun Anda tidak terdaftar sebagai Organizer."
 
                     cursor.execute("""
                         UPDATE EVENT SET event_title=%s, event_datetime=%s, venue_id=%s, description=%s, image_url=%s
                         WHERE event_id=%s AND organizer_id=%s;
                     """, [event_title, event_datetime, venue_id, description, image_url, event_id, res[0]])
                 else:
-                    return False
+                    return False, "Anda tidak memiliki izin untuk mengedit event ini."
 
                 if artists is not None:
                     cursor.execute(
@@ -105,18 +105,33 @@ def update_event(session_id, event_id, event_title, event_datetime, venue_id, de
                             INSERT INTO EVENT_ARTIST (event_id, artist_id, role)
                             VALUES (%s, %s, %s);
                         """, [event_id, artist['artist_id'], artist.get('role', 'Supporting')])
-                return True
+
+                if ticket_categories is not None:
+                    try:
+                        cursor.execute(
+                            "DELETE FROM TICKET_CATEGORY WHERE tevent_id = %s;", [event_id])
+                        for tc in ticket_categories:
+                            cursor.execute("""
+                                INSERT INTO TICKET_CATEGORY (category_name, quota, price, tevent_id)
+                                VALUES (%s, %s, %s, %s);
+                            """, [tc['category_name'], tc['quota'], tc['price'], event_id])
+                    except IntegrityError:
+                        return False, "Gagal mengedit kategori: Sudah ada tiket yang terjual untuk acara ini. Kategori tiket tidak dapat diubah."
+
+                return True, "Perubahan event berhasil disimpan!"
         except Exception as e:
-            print(e)
-            return False
+            return False, f"Terjadi kesalahan saat menyimpan perubahan: {str(e)}"
 
 
-def get_events(search_query=None, venue_id=None, artist_id=None):
+def get_events(search_query=None, venue_id=None, artist_id=None, status='upcoming'):
     query = """
-        SELECT e.event_id, e.event_title, e.event_datetime, e.image_url,
-               v.venue_name, o.organizer_name,
+        SELECT e.event_id, e.event_title, e.event_datetime, e.image_url, e.description, e.venue_id,
+               v.venue_name, v.city, o.organizer_name,
                COALESCE(MIN(tc.price), 0) AS harga_tiket_mulai,
-               STRING_AGG(DISTINCT a.name, ', ') AS daftar_artis
+               STRING_AGG(DISTINCT a.name, ', ') AS daftar_artis,
+               STRING_AGG(DISTINCT a.artist_id::text, ',') AS daftar_artist_ids,
+               STRING_AGG(DISTINCT tc.category_name, ', ') AS daftar_kategori_tiket,
+               STRING_AGG(DISTINCT tc.category_name || '|' || tc.price || '|' || tc.quota, ';;') AS ticket_data
         FROM EVENT e
         JOIN VENUE v ON e.venue_id = v.venue_id
         JOIN ORGANIZER o ON e.organizer_id = o.organizer_id
@@ -124,7 +139,24 @@ def get_events(search_query=None, venue_id=None, artist_id=None):
         LEFT JOIN EVENT_ARTIST ea ON e.event_id = ea.event_id
         LEFT JOIN ARTIST a ON ea.artist_id = a.artist_id
     """
-    filters, params = [], []
+
+    filters = []
+    params = []
+
+    now_utc = datetime.datetime.now(datetime.timezone.utc)
+    now_wib = now_utc + datetime.timedelta(hours=7)
+    now_str = now_wib.strftime('%Y-%m-%d %H:%M:%S')
+
+    sort_order = "ASC"
+
+    if status == 'past':
+        filters.append("e.event_datetime < %s")
+        params.append(now_str)
+        sort_order = "DESC"
+    else:
+        filters.append("e.event_datetime >= %s")
+        params.append(now_str)
+        sort_order = "ASC"
 
     if search_query:
         filters.append("(e.event_title ILIKE %s OR a.name ILIKE %s)")
@@ -138,11 +170,30 @@ def get_events(search_query=None, venue_id=None, artist_id=None):
 
     if filters:
         query += " WHERE " + " AND ".join(filters)
-    query += " GROUP BY e.event_id, v.venue_name, o.organizer_name ORDER BY e.event_datetime DESC;"
+
+    query += f" GROUP BY e.event_id, v.venue_name, v.city, o.organizer_name ORDER BY e.event_datetime {sort_order};"
 
     with connection.cursor() as cursor:
         cursor.execute(query, params)
-        return dictfetchall(cursor)
+        events = dictfetchall(cursor)
+
+        for event in events:
+            event['artis_list'] = [a.strip() for a in event['daftar_artis'].split(
+                ',')] if event['daftar_artis'] else []
+            event['artist_ids'] = [a.strip() for a in event['daftar_artist_ids'].split(
+                ',')] if event['daftar_artist_ids'] else []
+            event['kategori_list'] = [k.strip() for k in event['daftar_kategori_tiket'].split(
+                ',')] if event['daftar_kategori_tiket'] else []
+
+            event['ticket_list_full'] = []
+            if event['ticket_data']:
+                for t in event['ticket_data'].split(';;'):
+                    parts = t.split('|')
+                    if len(parts) == 3:
+                        event['ticket_list_full'].append(
+                            {'name': parts[0], 'price': parts[1], 'quota': parts[2]})
+
+        return events
 
 
 def get_event_by_id(event_id):

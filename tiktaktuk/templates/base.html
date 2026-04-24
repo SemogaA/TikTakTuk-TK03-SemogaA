@@ -48,6 +48,12 @@
                    Manajemen Venue
                 </a>
             </li>
+            <li>
+                <a href="{% url 'event_list' %}" 
+                   class="transition {% if request.resolver_match.url_name == 'event_list' %}text-blue-600{% else %}hover:text-blue-600{% endif %}">
+                   Manajemen Event
+                </a>
+            </li>
             <li><a href="#" class="hover:text-blue-600 transition">Manajemen Kursi</a></li>
             <li><a href="#" class="hover:text-blue-600 transition">Kategori Tiket</a></li>
             <li><a href="#" class="hover:text-blue-600 transition">Manajemen Tiket</a></li>
@@ -56,7 +62,12 @@
             <li><a href="#" class="hover:text-blue-600 transition">Order (Aset)</a></li>
 
             {% elif dashboard.role == 'organizer' %}
-            <li><a href="#" class="hover:text-blue-600 transition">Event Saya</a></li>
+            <li>
+                <a href="{% url 'event_list' %}" 
+                   class="transition {% if request.resolver_match.url_name == 'event_list' %}text-blue-600{% else %}hover:text-blue-600{% endif %}">
+                   Event Saya
+                </a>
+            </li>
             <li>
                 <a href="{% url 'venue_list' %}" 
                    class="transition {% if request.resolver_match.url_name == 'venue_list' %}text-blue-600{% else %}hover:text-blue-600{% endif %}">
@@ -73,7 +84,12 @@
             {% elif dashboard.role == 'customer' %}
             <li><a href="#" class="hover:text-blue-600 transition">Tiket Saya</a></li>
             <li><a href="#" class="hover:text-blue-600 transition">Pesanan</a></li>
-            <li><a href="#" class="hover:text-blue-600 transition">Cari Event</a></li>
+            <li>
+                <a href="{% url 'event_list' %}" 
+                   class="transition {% if request.resolver_match.url_name == 'event_list' %}text-blue-600{% else %}hover:text-blue-600{% endif %}">
+                   Cari Event
+                </a>
+            </li>
             <li><a href="#" class="hover:text-blue-600 transition">Promosi</a></li>
             <li>
                 <a href="{% url 'venue_list' %}" 

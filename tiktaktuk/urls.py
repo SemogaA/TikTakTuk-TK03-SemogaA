@@ -12,5 +12,6 @@ urlpatterns = [
 
     # modul spesifik di-include dari file urls pecahan
     path('venue/', include('tiktaktuk.urls_venue')),
+    path('event/', include('tiktaktuk.urls_event')),
     path('artist/', include('tiktaktuk.urls_artist')),
 ]

@@ -1,0 +1,430 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<section class="max-w-6xl mx-auto py-10 px-4 w-full">
+
+    {% if messages %}
+    <div class="mb-6 space-y-2">
+        {% for message in messages %}
+        <div class="p-4 rounded-xl flex items-center gap-3 text-sm font-bold shadow-sm 
+            {% if message.tags == 'error' %}bg-red-50 text-red-600 border border-red-200
+            {% elif message.tags == 'success' %}bg-emerald-50 text-emerald-600 border border-emerald-200
+            {% else %}bg-blue-50 text-blue-600 border border-blue-200{% endif %}">
+            
+            {% if message.tags == 'error' %}
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            {% else %}
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            {% endif %}
+            
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="flex justify-between items-end mb-8">
+        <div>
+            <h1 class="text-3xl font-bold text-slate-900 tracking-tight">Jelajahi Acara</h1>
+            <p class="text-slate-500 mt-1">Temukan acara terbaik dan beli tiket favorit Anda</p>
+        </div>
+        
+        {% if dashboard.role == 'administrator' or dashboard.role == 'organizer' %}
+        <button onclick="openCreateEventModal()" class="bg-blue-600 text-white font-bold px-6 py-3 rounded-xl hover:bg-blue-700 transition shadow-md flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+            Buat Event
+        </button>
+        {% endif %}
+    </div>
+
+    <form method="GET" action="{% url 'event_list' %}" class="flex flex-col md:flex-row gap-4 mb-8">
+        <input type="text" name="search" value="{{ search_query }}" placeholder="Cari acara atau artis..." class="flex-grow border border-slate-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white shadow-sm">
+        
+        <select name="status" class="border border-slate-300 rounded-xl px-4 py-3 text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none shadow-sm min-w-[150px]">
+            <option value="upcoming" {% if selected_status != 'past' %}selected{% endif %}>Akan Datang</option>
+            <option value="past" {% if selected_status == 'past' %}selected{% endif %}>Selesai</option>
+        </select>
+
+        <select name="venue" class="border border-slate-300 rounded-xl px-4 py-3 text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none shadow-sm min-w-[200px]">
+            <option value="">Semua Venue</option>
+            {% for v in venues %}
+            <option value="{{ v.venue_id }}" {% if selected_venue == v.venue_id|stringformat:"s" %}selected{% endif %}>
+                {{ v.venue_name }} ({{ v.city }})
+            </option>
+            {% endfor %}
+        </select>
+        
+        <select name="artist" class="border border-slate-300 rounded-xl px-4 py-3 text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none shadow-sm min-w-[200px]">
+            <option value="">Semua Artis</option>
+            {% for a in artists %}
+            <option value="{{ a.artist_id }}" {% if selected_artist == a.artist_id|stringformat:"s" %}selected{% endif %}>
+                {{ a.name }}
+            </option>
+            {% endfor %}
+        </select>
+
+        <button type="submit" class="bg-slate-800 text-white font-bold px-6 py-3 rounded-xl hover:bg-slate-900 transition shadow-sm">Filter</button>
+        {% if search_query or selected_venue or selected_artist or selected_status == 'past' %}
+        <a href="{% url 'event_list' %}" class="bg-slate-100 text-slate-600 font-bold px-6 py-3 rounded-xl hover:bg-slate-200 transition text-center shadow-sm">Reset</a>
+        {% endif %}
+    </form>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+        
+        {% for event in events %}
+        <div class="bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-200 hover:-translate-y-1 hover:shadow-lg transition duration-300 flex flex-col group">
+            
+            <div class="h-32 bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-4xl text-white relative overflow-hidden">
+                {% if not event.image_url %}
+                🎵
+                {% else %}
+                <img src="{{ event.image_url }}" alt="{{ event.event_title }}" class="absolute inset-0 w-full h-full object-cover z-0">
+                {% endif %}
+            </div>
+            
+            <div class="p-5 flex flex-col flex-grow">
+                <h3 class="font-bold text-lg text-slate-900 mb-2 leading-tight group-hover:text-blue-600 transition">{{ event.event_title }}</h3>
+                
+                <div class="mb-3">
+                    {% for artis in event.artis_list %}
+                        {% if artis %}
+                        <span class="bg-slate-100 text-slate-600 px-2.5 py-1 rounded-md text-[11px] font-semibold mr-1 mb-1 inline-block border border-slate-200">
+                            {{ artis }}
+                        </span>
+                        {% endif %}
+                    {% empty %}
+                        <span class="text-xs text-slate-400 italic">Lineup belum diumumkan</span>
+                    {% endfor %}
+                </div>
+
+                <div class="space-y-1.5 mb-4">
+                    <p class="text-sm text-slate-600 flex items-center gap-2">
+                        <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                        {{ event.event_datetime|date:"d M Y · H:i" }}
+                    </p>
+                    <p class="text-sm text-slate-600 flex items-center gap-2">
+                        <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                        <span class="truncate">{{ event.venue_name }}, {{ event.city }}</span>
+                    </p>
+                </div>
+
+                <p class="text-blue-600 font-black mb-3">
+                    {% if event.kategori_list %}
+                        {% if event.harga_tiket_mulai > 0 %}
+                            <span class="text-xs text-slate-500 font-normal mr-1">Mulai</span>Rp {{ event.harga_tiket_mulai|floatformat:0 }}
+                        {% else %}
+                            Gratis
+                        {% endif %}
+                    {% else %}
+                        TBA
+                    {% endif %}
+                </p>
+
+                <div class="mb-5 mt-auto">
+                    {% for kategori in event.kategori_list %}
+                        {% if kategori %}
+                        <span class="bg-indigo-50 text-indigo-700 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider mr-1 mb-1 inline-block border border-indigo-100">
+                            {{ kategori }}
+                        </span>
+                        {% endif %}
+                    {% empty %}
+                        <span class="text-xs text-slate-400 italic">Tiket belum tersedia</span>
+                    {% endfor %}
+                </div>
+
+                <div class="flex gap-2 mt-auto">
+                    {% if selected_status == 'past' %}
+                    <button disabled class="w-full py-2.5 bg-slate-200 text-slate-400 font-bold rounded-xl cursor-not-allowed text-sm">
+                        Event Selesai
+                    </button>
+                    {% else %}
+                    <button class="w-full py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition shadow-sm text-sm">
+                        Detail & Beli Tiket
+                    </button>
+                    {% endif %}
+                    
+                    {% if dashboard.role == 'administrator' or dashboard.role == 'organizer' %}
+                    <button type="button" 
+                            onclick="openEditEventModal(this)"
+                            data-id="{{ event.event_id }}"
+                            data-title="{{ event.event_title|escapejs }}"
+                            data-date="{{ event.event_datetime|date:'Y-m-d' }}"
+                            data-time="{{ event.event_datetime|date:'H:i' }}"
+                            data-venue="{{ event.venue_id }}"
+                            data-desc="{{ event.description|escapejs }}"
+                            data-image="{{ event.image_url|default:''|escapejs }}"
+                            data-artists="{{ event.artist_ids|join:',' }}"
+                            data-tickets="{% for t in event.ticket_list_full %}{{ t.name }}|{{ t.price }}|{{ t.quota }}{% if not forloop.last %};;{% endif %}{% endfor %}"
+                            class="px-3 bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-xl transition border border-slate-200" title="Edit Event">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                    </button>
+                    {% endif %}
+                </div>
+
+            </div>
+        </div>
+        
+        {% empty %}
+        <div class="col-span-full text-center py-16 bg-white rounded-3xl border border-slate-200 border-dashed">
+            <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg class="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+            </div>
+            <h3 class="text-lg font-bold text-slate-900 mb-1">Acara tidak ditemukan</h3>
+            <p class="text-slate-500 font-medium text-sm">Coba ubah kata kunci pencarian atau filter Anda.</p>
+        </div>
+        {% endfor %}
+
+    </div>
+</section>
+
+{% if dashboard.role == 'administrator' or dashboard.role == 'organizer' %}
+
+    <div id="modal-create-event" class="fixed inset-0 bg-slate-900/60 hidden items-center justify-center z-50 backdrop-blur-sm overflow-y-auto pt-10 pb-10">
+        <div class="bg-white w-full max-w-2xl rounded-3xl p-8 shadow-2xl relative my-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="font-bold text-xl text-slate-900">Buat Acara Baru</h2>
+                <button type="button" onclick="closeEventModal('modal-create-event')" class="text-slate-400 hover:text-slate-700 text-2xl leading-none">&times;</button>
+            </div>
+            
+            <form method="POST" action="{% url 'event_create' %}">
+                {% csrf_token %}
+                <div class="space-y-4">
+                    
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1">Judul Acara</label>
+                        <input type="text" name="event_title" required placeholder="cth. Konser Melodi Senja" class="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1">Tanggal</label>
+                            <input type="date" name="date" required class="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1">Waktu</label>
+                            <input type="time" name="time" required class="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1">Venue</label>
+                        <select name="venue_id" required class="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+                            <option value="" disabled selected>Pilih Venue...</option>
+                            {% for v in venues %}
+                            <option value="{{ v.venue_id }}">{{ v.venue_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1">Artis</label>
+                        <div class="flex flex-wrap gap-2" id="artist-chips-container-create">
+                            {% for a in artists %}
+                            <button type="button" onclick="toggleArtist(this, 'create')" data-id="{{ a.artist_id }}" class="px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 text-xs font-semibold border border-transparent transition cursor-pointer">
+                                {{ a.name }}
+                            </button>
+                            {% empty %}
+                            <p class="text-xs text-slate-400">Data artis kosong.</p>
+                            {% endfor %}
+                        </div>
+                        <div id="hidden-artists-create"></div>
+                    </div>
+
+                    <div class="pt-2">
+                        <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1">Kategori Tiket</label>
+                        <div id="ticket-container" class="space-y-3">
+                        </div>
+                        <button type="button" onclick="addTicketRow('ticket-container')" class="mt-2 text-blue-600 text-xs font-bold hover:text-blue-800 transition">+ Tambah Kategori</button>
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1">Deskripsi & URL Poster</label>
+                        <input type="url" name="image_url" placeholder="URL Poster Acara (Opsional)" class="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none mb-2">
+                        <textarea name="description" required placeholder="Deskripsi acara..." class="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none h-20 resize-none"></textarea>
+                    </div>
+
+                </div>
+                <div class="flex gap-3 mt-6">
+                    <button type="button" onclick="closeEventModal('modal-create-event')" class="flex-1 bg-slate-100 text-slate-700 font-bold py-3 rounded-xl hover:bg-slate-200 transition text-sm">Batal</button>
+                    <button type="submit" class="flex-1 bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700 shadow-md transition text-sm">Buat Acara</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="modal-edit-event" class="fixed inset-0 bg-slate-900/60 hidden items-center justify-center z-50 backdrop-blur-sm overflow-y-auto pt-10 pb-10">
+        <div class="bg-white w-full max-w-2xl rounded-3xl p-8 shadow-2xl relative my-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="font-bold text-xl text-slate-900">Edit Acara</h2>
+                <button type="button" onclick="closeEventModal('modal-edit-event')" class="text-slate-400 hover:text-slate-700 text-2xl leading-none">&times;</button>
+            </div>
+            
+            <form id="form-edit-event" method="POST" action="">
+                {% csrf_token %}
+                <div class="space-y-4">
+                    
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1">Judul Acara</label>
+                        <input type="text" id="edit_event_title" name="event_title" required class="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1">Tanggal</label>
+                            <input type="date" id="edit_date" name="date" required class="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1">Waktu</label>
+                            <input type="time" id="edit_time" name="time" required class="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1">Venue</label>
+                        <select id="edit_venue_id" name="venue_id" required class="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+                            {% for v in venues %}
+                            <option value="{{ v.venue_id }}">{{ v.venue_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1">Artis</label>
+                        <div class="flex flex-wrap gap-2" id="artist-chips-container-edit">
+                            {% for a in artists %}
+                            <button type="button" onclick="toggleArtist(this, 'edit')" data-id="{{ a.artist_id }}" id="edit_chip_{{ a.artist_id }}" class="px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 text-xs font-semibold border border-transparent transition cursor-pointer">
+                                {{ a.name }}
+                            </button>
+                            {% endfor %}
+                        </div>
+                        <div id="hidden-artists-edit"></div>
+                    </div>
+
+                    <div class="pt-2">
+                        <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-widest flex justify-between items-center mb-1">
+                            <span>Kategori Tiket</span>
+                            <span class="text-orange-500 normal-case font-normal text-xs">*Gagal simpan jika tiket sudah dibeli</span>
+                        </label>
+                        <div id="edit-ticket-container" class="space-y-3">
+                        </div>
+                        <button type="button" onclick="addTicketRow('edit-ticket-container')" class="mt-2 text-blue-600 text-xs font-bold hover:text-blue-800 transition">+ Tambah Kategori</button>
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1">Deskripsi & URL Poster</label>
+                        <input type="url" id="edit_image_url" name="image_url" placeholder="URL Poster Acara (Opsional)" class="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none mb-2">
+                        <textarea id="edit_description" name="description" required class="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none h-20 resize-none"></textarea>
+                    </div>
+
+                </div>
+                <div class="flex gap-3 mt-6">
+                    <button type="button" onclick="closeEventModal('modal-edit-event')" class="flex-1 bg-slate-100 text-slate-700 font-bold py-3 rounded-xl hover:bg-slate-200 transition text-sm">Batal</button>
+                    <button type="submit" class="flex-1 bg-slate-900 text-white font-bold py-3 rounded-xl hover:bg-slate-800 shadow-md transition text-sm">Simpan Perubahan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function openCreateEventModal() {
+            document.getElementById('modal-create-event').classList.remove('hidden');
+            document.getElementById('modal-create-event').classList.add('flex');
+            
+            document.getElementById('hidden-artists-create').innerHTML = '';
+            document.querySelectorAll('#artist-chips-container-create button').forEach(btn => {
+                btn.classList.remove('bg-blue-600', 'text-white', 'border-blue-700');
+                btn.classList.add('bg-slate-100', 'text-slate-600', 'border-transparent');
+            });
+            document.getElementById('ticket-container').innerHTML = '';
+            addTicketRow('ticket-container');
+        }
+
+        function closeEventModal(id) {
+            document.getElementById(id).classList.add('hidden');
+            document.getElementById(id).classList.remove('flex');
+        }
+
+        function addTicketRow(containerId, name='', price='', quota='') {
+            const container = document.getElementById(containerId);
+            const row = document.createElement('div');
+            row.className = 'border border-slate-200 p-3 rounded-xl bg-slate-50 flex flex-col md:flex-row gap-3 mt-3 relative';
+            row.innerHTML = `
+                <input type="text" name="tc_name[]" value="${name}" placeholder="Nama Kategori (cth. VIP)" required class="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                <input type="number" name="tc_price[]" value="${price}" placeholder="Harga" required class="w-full md:w-32 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                <input type="number" name="tc_quota[]" value="${quota}" placeholder="Kuota" required class="w-full md:w-24 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                <button type="button" onclick="this.parentElement.remove()" class="absolute -top-2 -right-2 bg-red-500 text-white w-5 h-5 rounded-full flex items-center justify-center text-xs shadow hover:bg-red-600">&times;</button>
+            `;
+            container.appendChild(row);
+        }
+
+        function toggleArtist(btn, formType) {
+            const artistId = btn.getAttribute('data-id');
+            const hiddenContainer = document.getElementById('hidden-artists-' + formType);
+            const inputId = `input-${formType}-${artistId}`;
+
+            const isActive = btn.classList.contains('bg-blue-600');
+            if (isActive) {
+                btn.classList.remove('bg-blue-600', 'text-white', 'border-blue-700');
+                btn.classList.add('bg-slate-100', 'text-slate-600', 'border-transparent');
+                const hiddenInput = document.getElementById(inputId);
+                if (hiddenInput) hiddenInput.remove();
+            } else {
+                btn.classList.remove('bg-slate-100', 'text-slate-600', 'border-transparent');
+                btn.classList.add('bg-blue-600', 'text-white', 'border-blue-700');
+                
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'artists';
+                input.value = artistId;
+                input.id = inputId;
+                hiddenContainer.appendChild(input);
+            }
+        }
+
+        function openEditEventModal(btn) {
+            const eventId = btn.getAttribute('data-id');
+            
+            document.getElementById('form-edit-event').action = `/event/update/${eventId}/`;
+            document.getElementById('edit_event_title').value = btn.getAttribute('data-title');
+            document.getElementById('edit_date').value = btn.getAttribute('data-date');
+            document.getElementById('edit_time').value = btn.getAttribute('data-time');
+            document.getElementById('edit_venue_id').value = btn.getAttribute('data-venue');
+            document.getElementById('edit_description').value = btn.getAttribute('data-desc');
+            document.getElementById('edit_image_url').value = btn.getAttribute('data-image');
+
+            document.getElementById('hidden-artists-edit').innerHTML = '';
+            document.querySelectorAll('#artist-chips-container-edit button').forEach(b => {
+                b.classList.remove('bg-blue-600', 'text-white', 'border-blue-700');
+                b.classList.add('bg-slate-100', 'text-slate-600', 'border-transparent');
+            });
+
+            const artistArray = btn.getAttribute('data-artists').split(',');
+            artistArray.forEach(id => {
+                if(id && id !== 'None') {
+                    const chipBtn = document.getElementById('edit_chip_' + id);
+                    if(chipBtn) toggleArtist(chipBtn, 'edit');
+                }
+            });
+
+            const ticketContainer = document.getElementById('edit-ticket-container');
+            ticketContainer.innerHTML = '';
+            
+            const ticketsRaw = btn.getAttribute('data-tickets');
+            if (ticketsRaw && ticketsRaw !== 'None') {
+                const tickets = ticketsRaw.split(';;');
+                tickets.forEach(t => {
+                    const parts = t.split('|');
+                    if (parts.length === 3) {
+                        addTicketRow('edit-ticket-container', parts[0], parts[1], parts[2]);
+                    }
+                });
+            } else {
+                addTicketRow('edit-ticket-container');
+            }
+
+            document.getElementById('modal-edit-event').classList.remove('hidden');
+            document.getElementById('modal-edit-event').classList.add('flex');
+        }
+    </script>
+{% endif %}
+{% endblock %}
