@@ -42,7 +42,12 @@
             </li>
 
             {% if dashboard.role == 'administrator' %}
-            <li><a href="#" class="hover:text-blue-600 transition">Manajemen Venue</a></li>
+            <li>
+                <a href="{% url 'venue_list' %}" 
+                   class="transition {% if request.resolver_match.url_name == 'venue_list' %}text-blue-600{% else %}hover:text-blue-600{% endif %}">
+                   Manajemen Venue
+                </a>
+            </li>
             <li><a href="#" class="hover:text-blue-600 transition">Manajemen Kursi</a></li>
             <li><a href="#" class="hover:text-blue-600 transition">Kategori Tiket</a></li>
             <li><a href="#" class="hover:text-blue-600 transition">Manajemen Tiket</a></li>
@@ -52,7 +57,12 @@
 
             {% elif dashboard.role == 'organizer' %}
             <li><a href="#" class="hover:text-blue-600 transition">Event Saya</a></li>
-            <li><a href="#" class="hover:text-blue-600 transition">Manajemen Venue</a></li>
+            <li>
+                <a href="{% url 'venue_list' %}" 
+                   class="transition {% if request.resolver_match.url_name == 'venue_list' %}text-blue-600{% else %}hover:text-blue-600{% endif %}">
+                   Manajemen Venue
+                </a>
+            </li>
             <li><a href="#" class="hover:text-blue-600 transition">Manajemen Kursi</a></li>
             <li><a href="#" class="hover:text-blue-600 transition">Kategori Tiket</a></li>
             <li><a href="#" class="hover:text-blue-600 transition">Manajemen Tiket</a></li>
@@ -65,7 +75,12 @@
             <li><a href="#" class="hover:text-blue-600 transition">Pesanan</a></li>
             <li><a href="#" class="hover:text-blue-600 transition">Cari Event</a></li>
             <li><a href="#" class="hover:text-blue-600 transition">Promosi</a></li>
-            <li><a href="#" class="hover:text-blue-600 transition">Venue</a></li>
+            <li>
+                <a href="{% url 'venue_list' %}" 
+                   class="transition {% if request.resolver_match.url_name == 'venue_list' %}text-blue-600{% else %}hover:text-blue-600{% endif %}">
+                   Venue
+                </a>
+            </li>
             <li><a href="#" class="hover:text-blue-600 transition">Artis</a></li>
             {% endif %}
 

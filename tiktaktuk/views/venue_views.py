@@ -1,14 +1,49 @@
 from django.shortcuts import render, redirect
 from tiktaktuk.services import venue as venue_service
+from tiktaktuk.services import user as user_service
 
 
 def list_view(request):
     """
-    nampilin semua venue dengan fitur pencarian.
+    Nampilin semua venue. Semua role bisa akses, tapi tombol aksi di-handle di template.
     """
+    session_id = request.COOKIES.get('session_id')
+    if not session_id:
+        return redirect('login')
+
+    role = user_service.get_user_role_by_session(session_id)
+    if not role:
+        return redirect('login')
+
     search_query = request.GET.get('search', '')
-    venues = venue_service.get_all_venues(search_query)
-    return render(request, 'venue_list.html', {'venues': venues, 'search_query': search_query})
+    filter_city = request.GET.get('city', '')
+    filter_seating = request.GET.get('seating', '')
+
+    venues = venue_service.get_all_venues(
+        search_query, filter_city, filter_seating)
+    cities = venue_service.get_distinct_cities()
+    profile_data = user_service.get_profile_data(session_id)
+
+    total_venue = len(venues)
+    reserved_seating = sum(
+        1 for v in venues if v['seating_type'] == 'reserved')
+    total_capacity = sum(v['capacity'] for v in venues)
+    total_capacity_formatted = f"{total_capacity:,}".replace(',', '.')
+
+    context = {
+        'venues': venues,
+        'search_query': search_query,
+        'selected_city': filter_city,
+        'selected_seating': filter_seating,
+        'cities': cities,
+        'total_venue': total_venue,
+        'reserved_seating': reserved_seating,
+        'total_capacity': total_capacity_formatted,
+        'dashboard': {'role': role},
+        'username': profile_data['username']
+    }
+
+    return render(request, 'venue/venue_list.html', context)
 
 
 def create_view(request):
