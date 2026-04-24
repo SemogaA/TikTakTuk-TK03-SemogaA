@@ -2,41 +2,41 @@
 <html lang="id">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>TikTakTuk</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap"
-        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body {
-            font-family: 'Plus Jakarta Sans', sans-serif;
-            background-color: #f8fafc;
+            font-family: 'Inter', sans-serif;
         }
     </style>
 </head>
 
-<body class="min-h-screen flex flex-col">
-    <nav class="bg-white border-b border-gray-100 py-4 px-6 flex justify-between items-center sticky top-0 z-50">
-        <a href="/" class="text-2xl font-extrabold tracking-tighter text-indigo-600">TikTakTuk</a>
-        <div class="flex items-center gap-6">
-            {% if username %}
-            <a href="{% url 'dashboard' %}"
-                class="text-sm font-semibold text-gray-600 hover:text-indigo-600">Dashboard</a>
-            <div class="h-6 w-px bg-gray-200"></div>
-            <span class="text-sm font-bold text-gray-800">{{ username|upper }}</span>
-            <a href="{% url 'logout' %}" class="text-sm font-bold text-red-500 hover:text-red-700">LOGOUT</a>
-            {% else %}
-            <a href="{% url 'login' %}" class="text-sm font-semibold text-gray-600">Login</a>
-            <a href="{% url 'register' %}"
-                class="bg-indigo-600 text-white px-5 py-2 rounded-full text-sm font-bold hover:bg-indigo-700 transition">Daftar</a>
-            {% endif %}
+<body class="bg-slate-200 text-slate-800 min-h-screen flex flex-col">
+
+    {% if username %}
+    <nav class="bg-white border-b border-slate-300 px-6 py-4 flex justify-between items-center shadow-sm">
+        <div class="flex items-center gap-3">
+            <div
+                class="w-8 h-8 bg-blue-600 text-white flex items-center justify-center rounded-lg text-xs font-bold tracking-tighter">
+                TT</div>
+            <a href="{% url 'dashboard' %}" class="font-bold text-lg text-slate-900">TikTakTuk</a>
+        </div>
+
+        <div class="flex items-center gap-4 text-sm">
+            <span class="text-slate-800 font-semibold">{{ username }}</span>
+            <div class="w-px h-5 bg-slate-300"></div>
+            <a href="{% url 'logout' %}" class="text-red-600 hover:text-red-800 font-bold transition">Logout</a>
         </div>
     </nav>
+    {% endif %}
 
-    <main class="flex-grow flex items-center justify-center py-12 px-4">
+    <main class="flex-grow flex flex-col">
         {% block content %}{% endblock %}
     </main>
+
 </body>
 
 </html>
