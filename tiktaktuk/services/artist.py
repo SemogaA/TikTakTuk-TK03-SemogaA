@@ -1,6 +1,6 @@
 from django.db import connection, IntegrityError
 from .utils import dictfetchall
-from .user import validate_session, get_user_roles_by_session
+from .user import validate_session, get_user_role_by_session
 
 
 def create_artist(session_id, name, genre=None):
@@ -9,10 +9,10 @@ def create_artist(session_id, name, genre=None):
     """
     with connection.cursor() as cursor:
         user_id = validate_session(session_id)
-        roles = get_user_roles_by_session(session_id)
+        role = get_user_role_by_session(session_id)
 
         # Cek apakah user valid dan punya role 'administrator'
-        if not user_id or "administrator" not in roles:
+        if not user_id or role != "administrator":
             return None
 
         # Nama tidak boleh kosong (validasi ganda di backend)
@@ -34,9 +34,9 @@ def update_artist(session_id, artist_id, name, genre=None):
     """
     with connection.cursor() as cursor:
         user_id = validate_session(session_id)
-        roles = get_user_roles_by_session(session_id)
+        role = get_user_role_by_session(session_id)
 
-        if not user_id or "administrator" not in roles:
+        if not user_id or role != "administrator":
             return False
 
         if not name or name.strip() == "":
@@ -58,9 +58,9 @@ def delete_artist(session_id, artist_id):
     """
     with connection.cursor() as cursor:
         user_id = validate_session(session_id)
-        roles = get_user_roles_by_session(session_id)
+        role = get_user_role_by_session(session_id)
 
-        if not user_id or "administrator" not in roles:
+        if not user_id or role != "administrator":
             return False
 
         try:

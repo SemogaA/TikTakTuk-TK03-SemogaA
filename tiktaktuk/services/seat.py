@@ -1,6 +1,6 @@
 from django.db import connection, IntegrityError
 from .utils import dictfetchall
-from .user import validate_session, get_user_roles_by_session
+from .user import validate_session, get_user_role_by_session
 
 
 def create_seat(session_id, venue_id, section, row_number, seat_number):
@@ -10,9 +10,9 @@ def create_seat(session_id, venue_id, section, row_number, seat_number):
     """
     with connection.cursor() as cursor:
         user_id = validate_session(session_id)
-        roles = get_user_roles_by_session(session_id)
+        role = get_user_role_by_session(session_id)
 
-        if not user_id or ("administrator" not in roles and "organizer" not in roles):
+        if not user_id or (role != 'administrator' and role != 'organizer'):
             return None
 
         # validasi: pastikan venue-nya tipe reserved
@@ -41,9 +41,9 @@ def update_seat(session_id, seat_id, section, row_number, seat_number):
     """
     with connection.cursor() as cursor:
         user_id = validate_session(session_id)
-        roles = get_user_roles_by_session(session_id)
+        role = get_user_role_by_session(session_id)
 
-        if not user_id or ("administrator" not in roles and "organizer" not in roles):
+        if not user_id or (role != 'administrator' and role != 'organizer'):
             return False
 
         try:
@@ -66,9 +66,9 @@ def delete_seat(session_id, seat_id):
     """
     with connection.cursor() as cursor:
         user_id = validate_session(session_id)
-        roles = get_user_roles_by_session(session_id)
+        role = get_user_role_by_session(session_id)
 
-        if not user_id or ("administrator" not in roles and "organizer" not in roles):
+        if not user_id or (role != 'administrator' and role != 'organizer'):
             return False
 
         try:

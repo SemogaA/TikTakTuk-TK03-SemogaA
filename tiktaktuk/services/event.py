@@ -1,24 +1,24 @@
 from django.db import connection, transaction
 from .utils import dictfetchall
-from .user import validate_session, get_user_roles_by_session
+from .user import validate_session, get_user_role_by_session
 
 
 def create_event(session_id, event_title, event_datetime, venue_id, description, image_url, artists, ticket_categories, organizer_id=None):
     with connection.cursor() as cursor:
         user_id = validate_session(session_id)
-        roles = get_user_roles_by_session(session_id)
+        role = get_user_role_by_session(session_id)
         if not user_id:
             return None
 
         # validasi Organizer
-        if "organizer" in roles:
+        if role == "organizer":
             cursor.execute(
                 "SELECT organizer_id FROM ORGANIZER WHERE user_id = %s;", [user_id])
             res = cursor.fetchone()
             if not res:
                 return None
             org_id_to_use = res[0]
-        elif "administrator" in roles:
+        elif role == "administrator":
             if not organizer_id:
                 return None
             org_id_to_use = organizer_id
@@ -72,18 +72,18 @@ def create_event(session_id, event_title, event_datetime, venue_id, description,
 def update_event(session_id, event_id, event_title, event_datetime, venue_id, description, image_url, artists=None):
     with connection.cursor() as cursor:
         user_id = validate_session(session_id)
-        roles = get_user_roles_by_session(session_id)
+        role = get_user_role_by_session(session_id)
         if not user_id:
             return False
 
         try:
             with transaction.atomic():
-                if "administrator" in roles:
+                if role == "administrator":
                     cursor.execute("""
                         UPDATE EVENT SET event_title=%s, event_datetime=%s, venue_id=%s, description=%s, image_url=%s
                         WHERE event_id=%s;
                     """, [event_title, event_datetime, venue_id, description, image_url, event_id])
-                elif "organizer" in roles:
+                elif role == "organizer":
                     cursor.execute(
                         "SELECT organizer_id FROM ORGANIZER WHERE user_id = %s;", [user_id])
                     res = cursor.fetchone()

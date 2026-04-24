@@ -8,6 +8,7 @@ urlpatterns = [
     path('logout/', auth_views.logout_view, name='logout'),
     path('', auth_views.home_view, name='home'),
     path('dashboard/', auth_views.dashboard_view, name='dashboard'),
+    path('profile/', auth_views.profile_view, name='profile'),
 
     # modul spesifik di-include dari file urls pecahan
     path('venue/', include('tiktaktuk.urls_venue')),

@@ -1,6 +1,6 @@
 from django.db import connection, IntegrityError
 from .utils import dictfetchall
-from .user import validate_session, get_user_roles_by_session
+from .user import validate_session, get_user_role_by_session
 
 
 def check_organizer_ownership(cursor, user_id, event_id):
@@ -49,12 +49,12 @@ def validate_venue_capacity(cursor, event_id, new_quota, exclude_category_id=Non
 def create_ticket_category(session_id, category_name, quota, price, tevent_id):
     with connection.cursor() as cursor:
         user_id = validate_session(session_id)
-        roles = get_user_roles_by_session(session_id)
+        role = get_user_role_by_session(session_id)
 
-        if not user_id or ("administrator" not in roles and "organizer" not in roles):
+        if not user_id or (role != 'administrator' and role != 'organizer'):
             return None
 
-        if "organizer" in roles and "administrator" not in roles:
+        if role == 'organizer':
             if not check_organizer_ownership(cursor, user_id, tevent_id):
                 return None
 
@@ -75,9 +75,9 @@ def create_ticket_category(session_id, category_name, quota, price, tevent_id):
 def update_ticket_category(session_id, category_id, category_name, quota, price):
     with connection.cursor() as cursor:
         user_id = validate_session(session_id)
-        roles = get_user_roles_by_session(session_id)
+        role = get_user_role_by_session(session_id)
 
-        if not user_id or ("administrator" not in roles and "organizer" not in roles):
+        if not user_id or (role != 'administrator' and role != 'organizer'):
             return False
 
         # cari event_id dari category_id ini dulu
@@ -89,7 +89,7 @@ def update_ticket_category(session_id, category_id, category_name, quota, price)
         tevent_id = res[0]
 
         # validasi kepemilikan organizer
-        if "organizer" in roles and "administrator" not in roles:
+        if role == 'organizer':
             if not check_organizer_ownership(cursor, user_id, tevent_id):
                 return False
 
@@ -110,9 +110,9 @@ def update_ticket_category(session_id, category_id, category_name, quota, price)
 def delete_ticket_category(session_id, category_id):
     with connection.cursor() as cursor:
         user_id = validate_session(session_id)
-        roles = get_user_roles_by_session(session_id)
+        role = get_user_role_by_session(session_id)
 
-        if not user_id or ("administrator" not in roles and "organizer" not in roles):
+        if not user_id or (role != 'administrator' and role != 'organizer'):
             return False
 
         # cari event_id untuk cek hak akses Organizer
@@ -122,7 +122,7 @@ def delete_ticket_category(session_id, category_id):
         if not res:
             return False
 
-        if "organizer" in roles and "administrator" not in roles:
+        if role == 'organizer':
             if not check_organizer_ownership(cursor, user_id, res[0]):
                 return False
 

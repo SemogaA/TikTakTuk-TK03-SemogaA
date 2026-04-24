@@ -1,6 +1,6 @@
 from django.db import connection, transaction
 from .utils import dictfetchall
-from .user import validate_session, get_user_roles_by_session
+from .user import validate_session, get_user_role_by_session
 import uuid
 
 
@@ -11,9 +11,9 @@ def create_order(session_id, items, promo_code=None):
     """
     with connection.cursor() as cursor:
         user_id = validate_session(session_id)
-        roles = get_user_roles_by_session(session_id)
+        role = get_user_role_by_session(session_id)
 
-        if not user_id or 'customer' not in roles:
+        if not user_id or role != 'customer':
             return None
 
         cursor.execute(
@@ -144,7 +144,7 @@ def get_all_orders(session_id):
     """
     with connection.cursor() as cursor:
         user_id = validate_session(session_id)
-        roles = get_user_roles_by_session(session_id)
+        role = get_user_role_by_session(session_id)
         if not user_id:
             return None
 
@@ -154,7 +154,7 @@ def get_all_orders(session_id):
         params = []
         summary = {}
 
-        if 'administrator' in roles:
+        if role == 'administrator':
             # query summary admin (semua order)
             summary_query = """
                 SELECT 
@@ -180,7 +180,7 @@ def get_all_orders(session_id):
                 ORDER BY o.order_date DESC;
             """
 
-        elif 'organizer' in roles:
+        elif role == 'organizer':
             cursor.execute(
                 "SELECT organizer_id FROM ORGANIZER WHERE user_id = %s;", [user_id])
             org_res = cursor.fetchone()
@@ -219,7 +219,7 @@ def get_all_orders(session_id):
                 ORDER BY o.order_date DESC;
             """
 
-        elif 'customer' in roles:
+        elif role == 'customer':
             cursor.execute(
                 "SELECT customer_id FROM CUSTOMER WHERE user_id = %s;", [user_id])
             cust_res = cursor.fetchone()
@@ -296,9 +296,9 @@ def update_order(session_id, order_id, payment_status):
     """ note: hanya admin yang bisa ubah status """
     with connection.cursor() as cursor:
         user_id = validate_session(session_id)
-        roles = get_user_roles_by_session(session_id)
+        role = get_user_role_by_session(session_id)
 
-        if not user_id or 'administrator' not in roles:
+        if not user_id or role != 'administrator':
             return False
 
         cursor.execute("""
@@ -311,9 +311,9 @@ def delete_order(session_id, order_id):
     """ note: hanya admin yang bisa hapus """
     with connection.cursor() as cursor:
         user_id = validate_session(session_id)
-        roles = get_user_roles_by_session(session_id)
+        role = get_user_role_by_session(session_id)
 
-        if not user_id or 'administrator' not in roles:
+        if not user_id or role != 'administrator':
             return False
 
         cursor.execute(

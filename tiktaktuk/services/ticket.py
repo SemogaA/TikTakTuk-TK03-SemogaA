@@ -1,6 +1,6 @@
 from django.db import connection, transaction
 from .utils import dictfetchall
-from .user import validate_session, get_user_roles_by_session
+from .user import validate_session, get_user_role_by_session
 import uuid
 
 
@@ -26,9 +26,9 @@ def create_ticket(session_id, tcategory_id, torder_id, seat_id=None):
     """
     with connection.cursor() as cursor:
         user_id = validate_session(session_id)
-        roles = get_user_roles_by_session(session_id)
+        role = get_user_role_by_session(session_id)
 
-        if not user_id or ("administrator" not in roles and "organizer" not in roles):
+        if not user_id or (role != 'administrator' and role != 'organizer'):
             return None
 
         # ambil data event & tipe venue dari kategori tiket
@@ -46,7 +46,7 @@ def create_ticket(session_id, tcategory_id, torder_id, seat_id=None):
         event_id, event_org_id, seating_type = ev_data
 
         # validasi kepemilikan organizer
-        if "organizer" in roles and "administrator" not in roles:
+        if role == 'organizer':
             cursor.execute(
                 "SELECT organizer_id FROM ORGANIZER WHERE user_id = %s;", [user_id])
             org_res = cursor.fetchone()
@@ -93,7 +93,7 @@ def get_all_tickets(session_id):
     """
     with connection.cursor() as cursor:
         user_id = validate_session(session_id)
-        roles = get_user_roles_by_session(session_id)
+        role = get_user_role_by_session(session_id)
         if not user_id:
             return None
 
@@ -102,7 +102,7 @@ def get_all_tickets(session_id):
         params = []
         summary = {}
 
-        if 'administrator' in roles:
+        if role == 'administrator':
             # admin liat semua tiket di platform
             summary_query = """
                 SELECT 
@@ -122,7 +122,7 @@ def get_all_tickets(session_id):
                 ORDER BY e.event_datetime DESC;
             """
 
-        elif 'organizer' in roles:
+        elif role == 'organizer':
             # organizer cuma liat tiket untuk event mereka
             cursor.execute(
                 "SELECT organizer_id FROM ORGANIZER WHERE user_id = %s;", [user_id])
@@ -153,7 +153,7 @@ def get_all_tickets(session_id):
                 ORDER BY e.event_datetime DESC;
             """
 
-        elif 'customer' in roles:
+        elif role == 'customer':
             # customer cuma liat tiket punya dia sendiri
             cursor.execute(
                 "SELECT customer_id FROM CUSTOMER WHERE user_id = %s;", [user_id])
@@ -227,9 +227,9 @@ def update_ticket(session_id, ticket_id, status, seat_id=None):
     """
     with connection.cursor() as cursor:
         user_id = validate_session(session_id)
-        roles = get_user_roles_by_session(session_id)
+        role = get_user_role_by_session(session_id)
 
-        if not user_id or 'administrator' not in roles:
+        if not user_id or role != 'administrator':
             return False
 
         # ambil event_id tiket ini buat validasi kursi
@@ -274,9 +274,9 @@ def delete_ticket(session_id, ticket_id):
     """
     with connection.cursor() as cursor:
         user_id = validate_session(session_id)
-        roles = get_user_roles_by_session(session_id)
+        role = get_user_role_by_session(session_id)
 
-        if not user_id or 'administrator' not in roles:
+        if not user_id or role != 'administrator':
             return False
 
         cursor.execute("DELETE FROM TICKET WHERE ticket_id = %s;", [ticket_id])

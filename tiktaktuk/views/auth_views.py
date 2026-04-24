@@ -135,8 +135,69 @@ def dashboard_view(request):
 
     context = {
         'dashboard': dashboard_data,
-        'roles': dashboard_data['roles'],
+        'role': dashboard_data['role'],
         'username': dashboard_data['username']
     }
 
     return render(request, 'auth/dashboard.html', context)
+
+
+def profile_view(request):
+    session_id = request.COOKIES.get('session_id')
+    if not session_id:
+        return redirect('login')
+
+    if request.method == 'GET':
+        profile_data = user_service.get_profile_data(session_id)
+        if not profile_data:
+            return redirect('logout')
+
+        context = {
+            'profile': profile_data,
+            'dashboard': {'role': profile_data['role']},
+            'username': profile_data['username']
+        }
+        return render(request, 'auth/profile.html', context)
+
+    elif request.method == 'POST':
+        is_success = False
+        message = ""
+
+        # buat update informasi profil
+        if 'update_info' in request.POST:
+            update_data = {
+                'email': request.POST.get('email'),
+                'full_name': request.POST.get('full_name'),
+                'phone_number': request.POST.get('phone_number'),
+                'organizer_name': request.POST.get('organizer_name'),
+                'contact_email': request.POST.get('contact_email'),
+            }
+            is_success, message = user_service.update_profile_info(
+                session_id, update_data)
+
+        # buat update password
+        elif 'update_password' in request.POST:
+            old_password = request.POST.get('old_password')
+            new_password = request.POST.get('new_password')
+            confirm_password = request.POST.get('confirm_password')
+
+            # validasi Konfirmasi Password
+            if new_password != confirm_password:
+                is_success, message = False, "Konfirmasi password tidak cocok!"
+            elif len(new_password) < 6:
+                is_success, message = False, "Password baru minimal harus 6 karakter."
+            else:
+                is_success, message = user_service.change_user_password(
+                    session_id, old_password, new_password)
+
+        # tarik ulang data terbaru untuk di-render kembali ke form
+        profile_data = user_service.get_profile_data(session_id)
+
+        context = {
+            'profile': profile_data,
+            'dashboard': {'role': profile_data['role']},
+            'username': profile_data['username'],
+            'message': message,
+            'success': is_success
+        }
+        return render(request, 'auth/profile.html', context)

@@ -1,6 +1,6 @@
 from django.db import connection, IntegrityError
 from .utils import dictfetchall
-from .user import validate_session, get_user_roles_by_session
+from .user import validate_session, get_user_role_by_session
 
 
 def create_promotion(session_id, promo_code, discount_type, discount_value, start_date, end_date, usage_limit):
@@ -9,9 +9,9 @@ def create_promotion(session_id, promo_code, discount_type, discount_value, star
     """
     with connection.cursor() as cursor:
         user_id = validate_session(session_id)
-        roles = get_user_roles_by_session(session_id)
+        role = get_user_role_by_session(session_id)
 
-        if not user_id or 'administrator' not in roles:
+        if not user_id or role != 'administrator':
             return None
 
         try:
@@ -32,9 +32,9 @@ def update_promotion(session_id, promotion_id, promo_code, discount_type, discou
     """
     with connection.cursor() as cursor:
         user_id = validate_session(session_id)
-        roles = get_user_roles_by_session(session_id)
+        role = get_user_role_by_session(session_id)
 
-        if not user_id or 'administrator' not in roles:
+        if not user_id or role != 'administrator':
             return False
 
         try:
@@ -62,9 +62,9 @@ def delete_promotion(session_id, promotion_id):
     """
     with connection.cursor() as cursor:
         user_id = validate_session(session_id)
-        roles = get_user_roles_by_session(session_id)
+        role = get_user_role_by_session(session_id)
 
-        if not user_id or 'administrator' not in roles:
+        if not user_id or role != 'administrator':
             return False
 
         try:

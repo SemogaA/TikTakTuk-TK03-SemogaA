@@ -1,14 +1,14 @@
 from django.db import connection, IntegrityError
 from .utils import dictfetchall
-from .user import validate_session, get_user_roles_by_session
+from .user import validate_session, get_user_role_by_session
 
 
 def create_venue(session_id, venue_name, capacity, address, city, seating_type):
     with connection.cursor() as cursor:
         user_id = validate_session(session_id)
-        roles = get_user_roles_by_session(session_id)
+        role = get_user_role_by_session(session_id)
 
-        if not user_id or ("administrator" not in roles and "organizer" not in roles):
+        if not user_id or (role != 'administrator' and role != 'organizer'):
             return None
 
         cursor.execute("""
@@ -21,9 +21,9 @@ def create_venue(session_id, venue_name, capacity, address, city, seating_type):
 def update_venue(session_id, venue_id, venue_name, capacity, address, city, seating_type):
     with connection.cursor() as cursor:
         user_id = validate_session(session_id)
-        roles = get_user_roles_by_session(session_id)
+        role = get_user_role_by_session(session_id)
 
-        if not user_id or ("administrator" not in roles and "organizer" not in roles):
+        if not user_id or (role != 'administrator' and role != 'organizer'):
             return False
 
         cursor.execute("""
@@ -37,9 +37,9 @@ def update_venue(session_id, venue_id, venue_name, capacity, address, city, seat
 def delete_venue(session_id, venue_id):
     with connection.cursor() as cursor:
         user_id = validate_session(session_id)
-        roles = get_user_roles_by_session(session_id)
+        role = get_user_role_by_session(session_id)
 
-        if not user_id or ("administrator" not in roles and "organizer" not in roles):
+        if not user_id or (role != 'administrator' and role != 'organizer'):
             return False
 
         try:
@@ -51,9 +51,6 @@ def delete_venue(session_id, venue_id):
 
 
 def get_all_venues(search_query=None):
-    """
-    R - Venue: Ditambah logika search berdasarkan nama/kota sesuai skenario.
-    """
     query = "SELECT venue_id, venue_name, capacity, address, city, seating_type FROM VENUE"
     params = []
 
