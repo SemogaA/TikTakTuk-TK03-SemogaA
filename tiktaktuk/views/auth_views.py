@@ -6,14 +6,26 @@ import re
 
 def home_view(request):
     """
-    redirect ke login page.
-    kalau ternyata udah punya cookie session, arahin langsung ke dashboard.
+    Menampilkan Landing Page super minimalis.
     """
     session_id = request.COOKIES.get('session_id')
-    if session_id and user_service.validate_session(session_id):
-        return redirect('dashboard')
+    role = 'guest'
+    username = ''
 
-    return render(request, 'auth/login.html')
+    # Cek apakah pengguna sudah login agar Navbar menyesuaikan
+    if session_id:
+        user_id = user_service.validate_session(session_id)
+        if user_id:
+            role = user_service.get_user_role_by_session(session_id)
+            profile_data = user_service.get_profile_data(session_id)
+            username = profile_data.get('username', '')
+
+    context = {
+        'dashboard': {'role': role},
+        'username': username,
+    }
+
+    return render(request, 'home.html', context)
 
 
 def login_view(request):
@@ -87,6 +99,9 @@ def register_view(request):
             profile_data['phone_number'] = phone_number
         elif role_name == 'organizer':
             profile_data['organizer_name'] = request.POST.get('organizer_name')
+        elif role_name == 'administrator':
+            # asumsinya tabel ADMIN hanya menyimpan Nama, atau menggunakan skema dasar user
+            profile_data['full_name'] = request.POST.get('full_name')
 
         user_id = user_service.register_user_atomic(
             username, email, password, role_name, profile_data)

@@ -57,7 +57,18 @@
             <li><a href="#" class="hover:text-blue-600 transition">Manajemen Kursi</a></li>
             <li><a href="#" class="hover:text-blue-600 transition">Kategori Tiket</a></li>
             <li><a href="#" class="hover:text-blue-600 transition">Manajemen Tiket</a></li>
-            <li><a href="#" class="hover:text-blue-600 transition">Semua Order</a></li>
+            <li>
+                <a href="{% url 'order_list' %}" 
+                class="transition {% if request.resolver_match.url_name == 'order_list' %}text-blue-600{% else %}hover:text-blue-600{% endif %}">
+                Semua Order
+                </a>
+            </li>
+            <li>
+                <a href="{% url 'promotion_list' %}" 
+                class="transition {% if request.resolver_match.url_name == 'promotion_list' %}text-blue-600{% else %}hover:text-blue-600{% endif %}">
+                Promosi
+                </a>
+            </li>
             <li><a href="#" class="hover:text-blue-600 transition">Tiket (Aset)</a></li>
             <li><a href="#" class="hover:text-blue-600 transition">Order (Aset)</a></li>
 
@@ -77,20 +88,41 @@
             <li><a href="#" class="hover:text-blue-600 transition">Manajemen Kursi</a></li>
             <li><a href="#" class="hover:text-blue-600 transition">Kategori Tiket</a></li>
             <li><a href="#" class="hover:text-blue-600 transition">Manajemen Tiket</a></li>
-            <li><a href="#" class="hover:text-blue-600 transition">Semua Order</a></li>
+            <li>
+                <a href="{% url 'order_list' %}" 
+                class="transition {% if request.resolver_match.url_name == 'order_list' %}text-blue-600{% else %}hover:text-blue-600{% endif %}">
+                Semua Order
+                </a>
+            </li>
+            <li>
+                <a href="{% url 'promotion_list' %}" 
+                class="transition {% if request.resolver_match.url_name == 'promotion_list' %}text-blue-600{% else %}hover:text-blue-600{% endif %}">
+                Promosi
+                </a>
+            </li>
             <li><a href="#" class="hover:text-blue-600 transition">Tiket (Aset)</a></li>
             <li><a href="#" class="hover:text-blue-600 transition">Order (Aset)</a></li>
 
             {% elif dashboard.role == 'customer' %}
             <li><a href="#" class="hover:text-blue-600 transition">Tiket Saya</a></li>
-            <li><a href="#" class="hover:text-blue-600 transition">Pesanan</a></li>
+            <li>
+                <a href="{% url 'order_list' %}" 
+                class="transition {% if request.resolver_match.url_name == 'order_list' %}text-blue-600{% else %}hover:text-blue-600{% endif %}">
+                Pesanan
+                </a>
+            </li>
             <li>
                 <a href="{% url 'event_list' %}" 
                    class="transition {% if request.resolver_match.url_name == 'event_list' %}text-blue-600{% else %}hover:text-blue-600{% endif %}">
                    Cari Event
                 </a>
             </li>
-            <li><a href="#" class="hover:text-blue-600 transition">Promosi</a></li>
+            <li>
+                <a href="{% url 'promotion_list' %}" 
+                class="transition {% if request.resolver_match.url_name == 'promotion_list' %}text-blue-600{% else %}hover:text-blue-600{% endif %}">
+                Promosi
+                </a>
+            </li>
             <li>
                 <a href="{% url 'venue_list' %}" 
                    class="transition {% if request.resolver_match.url_name == 'venue_list' %}text-blue-600{% else %}hover:text-blue-600{% endif %}">
@@ -109,7 +141,13 @@
             <div class="w-8 h-8 bg-blue-600 text-white flex items-center justify-center rounded-lg text-xs font-bold shadow-md">TT</div>
             <a href="{% url 'home' %}" class="font-bold text-lg text-slate-900 tracking-tight">TikTakTuk</a>
         </div>
+        
         <div class="flex items-center gap-4 text-sm font-semibold">
+            <a href="#" class="text-slate-600 hover:text-blue-600 transition">Kategori Tiket</a> 
+            <a href="{% url 'promotion_list' %}" class="text-slate-600 hover:text-blue-600 transition mr-2">Promosi</a>
+            
+            <div class="w-px h-4 bg-slate-300"></div>
+            
             <a href="{% url 'login' %}" class="text-slate-600 hover:text-slate-900 transition">Login</a>
             <a href="{% url 'register' %}" class="bg-blue-600 text-white px-5 py-2 rounded-lg hover:bg-blue-700 transition shadow-sm border border-blue-700">Register</a>
         </div>

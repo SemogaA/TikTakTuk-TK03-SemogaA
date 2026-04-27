@@ -17,6 +17,12 @@
             <h2 class="font-semibold text-slate-900">Jenis Pengguna</h2>
             <p class="text-sm text-slate-500 mb-5">Pilih jenis akun yang sesuai dengan kebutuhan Anda</p>
 
+            <button type="button" onclick="showForm('administrator')"
+                class="w-full text-left border border-slate-200 rounded-xl p-4 mb-3 hover:border-red-500 hover:bg-red-50 transition cursor-pointer">
+                <p class="font-medium text-slate-800">🛡️ Administrator</p>
+                <p class="text-sm text-slate-500 mt-1">Kelola seluruh sistem dan data aplikasi</p>
+            </button>
+
             <button type="button" onclick="showForm('customer')"
                 class="w-full text-left border border-slate-200 rounded-xl p-4 mb-3 hover:border-blue-500 hover:bg-blue-50 transition cursor-pointer">
                 <p class="font-medium text-slate-800">👤 Pelanggan</p>
@@ -111,7 +117,6 @@
 </section>
 
 <script>
-    // logic ganti form berdasarkan role yang dipilih
     function showForm(role) {
         document.getElementById('step-1-role').classList.add('hidden');
         document.getElementById('step-2-form').classList.remove('hidden');
@@ -128,16 +133,21 @@
             inputNama.name = 'organizer_name';
             inputNama.placeholder = 'Masukkan nama instansi';
             fieldPhone.classList.add('hidden');
-
-            // hilangin atribut required kalau rolenya organizer biar form bisa submit
+            fieldPhone.querySelector('input').removeAttribute('required');
+        } else if (role === 'administrator') {
+            title.innerText = 'Daftar sebagai Administrator';
+            labelNama.innerText = 'Nama Admin';
+            inputNama.name = 'full_name'; // Disesuaikan dengan struktur DB Admin kamu
+            inputNama.placeholder = 'Masukkan nama lengkap';
+            fieldPhone.classList.add('hidden');
             fieldPhone.querySelector('input').removeAttribute('required');
         } else {
+            // Role Customer
             title.innerText = 'Daftar sebagai Pelanggan';
             labelNama.innerText = 'Nama Lengkap';
             inputNama.name = 'full_name';
             inputNama.placeholder = 'Masukkan nama lengkap';
             fieldPhone.classList.remove('hidden');
-
             fieldPhone.querySelector('input').setAttribute('required', 'true');
         }
     }
@@ -145,8 +155,6 @@
     function backToRoles() {
         document.getElementById('step-2-form').classList.add('hidden');
         document.getElementById('step-1-role').classList.remove('hidden');
-
-        // sembunyiin error kalau balik ke awal
         document.getElementById('error-banner').classList.add('hidden');
     }
 

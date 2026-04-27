@@ -319,3 +319,107 @@ def delete_order(session_id, order_id):
         cursor.execute(
             "DELETE FROM \"ORDER\" WHERE order_id = %s;", [order_id])
     return True
+
+def get_checkout_data(event_id):
+    """
+    Ambil semua data untuk halaman checkout.
+    Return dict berisi event, categories, seats — atau None jika event tidak ada.
+    """
+    with connection.cursor() as cursor:
+        # Info event + venue
+        cursor.execute("""
+            SELECT e.event_id, e.event_title, e.event_datetime,
+                   v.venue_id, v.venue_name, v.city, v.seating_type,
+                   STRING_AGG(DISTINCT a.name, ', ') AS daftar_artis
+            FROM EVENT e
+            JOIN VENUE v ON e.venue_id = v.venue_id
+            LEFT JOIN EVENT_ARTIST ea ON e.event_id = ea.event_id
+            LEFT JOIN ARTIST a ON ea.artist_id = a.artist_id
+            WHERE e.event_id = %s
+            GROUP BY e.event_id, v.venue_id, v.venue_name, v.city, v.seating_type;
+        """, [event_id])
+        event = dictfetchall(cursor)
+        if not event:
+            return None
+        event = event[0]
+
+        # Kategori tiket + sisa kuota (abaikan order cancelled)
+        cursor.execute("""
+            SELECT tc.category_id, tc.category_name, tc.price, tc.quota,
+                   COALESCE((
+                       SELECT COUNT(*) FROM TICKET t
+                       JOIN "ORDER" o ON t.torder_id = o.order_id
+                       WHERE t.tcategory_id = tc.category_id
+                         AND o.payment_status != 'Cancelled'
+                   ), 0) AS sold
+            FROM TICKET_CATEGORY tc
+            WHERE tc.tevent_id = %s
+            ORDER BY tc.price DESC;
+        """, [event_id])
+        categories = dictfetchall(cursor)
+
+        for cat in categories:
+            cat['remaining'] = int(cat['quota']) - int(cat['sold'])
+            cat['price']     = int(cat['price'])
+
+        # Seat list (hanya jika reserved seating)
+        seats = []
+        if event['seating_type'] == 'reserved':
+            cursor.execute("""
+                SELECT s.seat_id, s.section, s.row_number, s.seat_number,
+                       CASE WHEN hr.seat_id IS NOT NULL THEN true ELSE false END AS is_taken
+                FROM SEAT s
+                LEFT JOIN HAS_RELATIONSHIP hr ON s.seat_id = hr.seat_id
+                WHERE s.venue_id = %s
+                ORDER BY s.section, s.row_number, s.seat_number::int;
+            """, [event['venue_id']])
+            seats = dictfetchall(cursor)
+
+        return {
+            'event':      event,
+            'categories': categories,
+            'seats':      seats,
+        }
+
+
+def validate_promo_only(promo_code, total_price):
+    """
+    Validasi kode promo dan hitung diskon tanpa membuat order.
+    Dipakai endpoint AJAX di view.
+    Return: (diskon_amount, promo_data, error_msg)
+    """
+    with connection.cursor() as cursor:
+        cursor.execute("""
+            SELECT promotion_id, promo_code, discount_type, discount_value, usage_limit
+            FROM PROMOTION
+            WHERE UPPER(promo_code) = UPPER(%s)
+              AND CURRENT_DATE BETWEEN start_date AND end_date;
+        """, [promo_code])
+        row = cursor.fetchone()
+
+        if not row:
+            return 0, None, 'Kode promo tidak ditemukan atau sudah kadaluarsa.'
+
+        promo_id, code, d_type, d_value, usage_limit = row
+
+        cursor.execute(
+            "SELECT COUNT(*) FROM ORDER_PROMOTION WHERE promotion_id = %s;",
+            [promo_id]
+        )
+        used = cursor.fetchone()[0]
+        if used >= usage_limit:
+            return 0, None, 'Batas penggunaan promo sudah habis.'
+
+        d_value = float(d_value)
+        if d_type == 'NOMINAL':
+            diskon = d_value
+        else:  # PERCENTAGE
+            diskon = total_price * (d_value / 100.0)
+
+        promo_data = {
+            'promotion_id':  promo_id,
+            'promo_code':    code,
+            'discount_type': d_type,
+            'discount_value': d_value,
+        }
+        return diskon, promo_data, None

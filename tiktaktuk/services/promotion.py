@@ -80,10 +80,42 @@ def delete_promotion(session_id, promotion_id):
             return False
 
 
-def get_all_promotions(session_id=None):
+# def get_all_promotions(session_id=None):
+#     """
+#     note: menampilkan list promo beserta rangkuman dashboard.
+#     bisa diakses semua pengguna (termasuk yang belum login, tapi data summary butuh logic terpisah jika diinginkan).
+#     """
+#     with connection.cursor() as cursor:
+#         # query summary (total promo, total pemakaian, dan tipe persentase)
+#         cursor.execute("""
+#             SELECT 
+#                 (SELECT COUNT(*) FROM PROMOTION) as total_promo,
+#                 (SELECT COUNT(*) FROM ORDER_PROMOTION) as total_penggunaan,
+#                 (SELECT COUNT(*) FROM PROMOTION WHERE discount_type = 'PERCENTAGE') as tipe_persentase;
+#         """)
+#         summary_result = dictfetchall(cursor)
+#         summary = summary_result[0] if summary_result else {}
+
+#         # query list promotion (diurutkan berdasarkan promo terbaru / start_date terdekat)
+#         cursor.execute("""
+#             SELECT 
+#                 promotion_id, promo_code, discount_type, discount_value, 
+#                 start_date, end_date, usage_limit 
+#             FROM PROMOTION
+#             ORDER BY start_date DESC;
+#         """)
+#         list_promotion = dictfetchall(cursor)
+
+#         return {
+#             "summary": summary,
+#             "list_promotion": list_promotion
+#         }
+
+# ganti ke yg bawah ini supaya guest bisa akses promotion
+def get_all_promotions(search='', discount_type=''):
     """
-    note: menampilkan list promo beserta rangkuman dashboard.
-    bisa diakses semua pengguna (termasuk yang belum login, tapi data summary butuh logic terpisah jika diinginkan).
+    Menampilkan list promo beserta rangkuman dashboard.
+    Bisa diakses semua pengguna (termasuk Guest).
     """
     with connection.cursor() as cursor:
         # query summary (total promo, total pemakaian, dan tipe persentase)
@@ -96,21 +128,33 @@ def get_all_promotions(session_id=None):
         summary_result = dictfetchall(cursor)
         summary = summary_result[0] if summary_result else {}
 
-        # query list promotion (diurutkan berdasarkan promo terbaru / start_date terdekat)
-        cursor.execute("""
+        # query list promotion (dengan fitur search, filter, dan perhitungan usage)
+        query = """
             SELECT 
-                promotion_id, promo_code, discount_type, discount_value, 
-                start_date, end_date, usage_limit 
-            FROM PROMOTION
-            ORDER BY start_date DESC;
-        """)
+                p.promotion_id, p.promo_code, p.discount_type, p.discount_value, 
+                p.start_date, p.end_date, p.usage_limit,
+                (SELECT COUNT(*) FROM ORDER_PROMOTION op WHERE op.promotion_id = p.promotion_id) as used_count
+            FROM PROMOTION p
+            WHERE 1=1
+        """
+        params = []
+        if search:
+            query += " AND p.promo_code ILIKE %s"
+            params.append(f"%{search}%")
+        
+        if discount_type:
+            query += " AND p.discount_type = %s"
+            params.append(discount_type)
+
+        query += " ORDER BY p.start_date DESC;"
+        
+        cursor.execute(query, params)
         list_promotion = dictfetchall(cursor)
 
         return {
             "summary": summary,
             "list_promotion": list_promotion
         }
-
 
 def get_promotion_by_id(promotion_id):
     """ 

@@ -1,0 +1,258 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-8 w-full">
+
+    {% if messages %}
+    <div class="mb-6 space-y-2">
+        {% for message in messages %}
+        <div class="p-4 rounded-xl flex items-center gap-3 text-sm font-bold shadow-sm 
+            {% if message.tags == 'error' %}bg-red-50 text-red-600 border border-red-200
+            {% elif message.tags == 'success' %}bg-emerald-50 text-emerald-600 border border-emerald-200
+            {% else %}bg-blue-50 text-blue-600 border border-blue-200{% endif %}">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-slate-900 tracking-tight">Daftar Pesanan</h1>
+        <p class="text-slate-500 mt-1">
+            {% if dashboard.role == 'customer' %}
+                Kelola tiket dan riwayat pesanan Anda.
+            {% elif dashboard.role == 'organizer' %}
+                Pantau penjualan tiket untuk event yang Anda selenggarakan.
+            {% else %}
+                Manajemen seluruh transaksi tiket di platform TikTakTuk.
+            {% endif %}
+        </p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 {% if dashboard.role != 'customer' %}lg:grid-cols-4{% endif %} gap-4 mb-8">
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-center">
+            <p class="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-1">Total Pesanan</p>
+            <p class="text-3xl font-black text-slate-800">{{ summary.total_order|default:0 }}</p>
+        </div>
+        
+        <div class="bg-emerald-50 p-5 rounded-2xl border border-emerald-100 shadow-sm flex flex-col justify-center">
+            <p class="text-sm font-semibold text-emerald-600 uppercase tracking-wider mb-1">Pesanan Lunas</p>
+            <p class="text-3xl font-black text-emerald-700">{{ summary.lunas|default:0 }}</p>
+        </div>
+
+        <div class="bg-amber-50 p-5 rounded-2xl border border-amber-100 shadow-sm flex flex-col justify-center">
+            <p class="text-sm font-semibold text-amber-600 uppercase tracking-wider mb-1">Menunggu Bayar</p>
+            <p class="text-3xl font-black text-amber-700">{{ summary.pending|default:0 }}</p>
+        </div>
+
+        {% if dashboard.role == 'administrator' or dashboard.role == 'organizer' %}
+        <div class="bg-blue-50 p-5 rounded-2xl border border-blue-100 shadow-sm flex flex-col justify-center">
+            <p class="text-sm font-semibold text-blue-600 uppercase tracking-wider mb-1">Total Pendapatan</p>
+            <p class="text-2xl font-black text-blue-700 truncate" title="Rp {{ summary.total_revenue|floatformat:0 }}">
+                Rp {{ summary.total_revenue|floatformat:0|default:0 }}
+            </p>
+        </div>
+        {% endif %}
+    </div>
+
+    <form method="GET" action="{% url 'order_list' %}" class="flex flex-col sm:flex-row gap-3 mb-6 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+        <input type="text" name="search" value="{{ search }}" placeholder="Cari ID Pesanan..." 
+               class="flex-grow border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+        
+        <select name="status" class="border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white min-w-[180px]">
+            <option value="">Semua Status</option>
+            <option value="Paid" {% if status_filter == 'Paid' %}selected{% endif %}>Lunas (Paid)</option>
+            <option value="Pending" {% if status_filter == 'Pending' %}selected{% endif %}>Menunggu (Pending)</option>
+            <option value="Cancelled" {% if status_filter == 'Cancelled' %}selected{% endif %}>Dibatalkan (Cancelled)</option>
+        </select>
+
+        <button type="submit" class="bg-slate-800 text-white font-bold px-6 py-2.5 rounded-xl hover:bg-slate-900 transition">Filter</button>
+        
+        {% if search or status_filter %}
+        <a href="{% url 'order_list' %}" class="bg-slate-100 text-slate-600 font-bold px-6 py-2.5 rounded-xl hover:bg-slate-200 transition text-center flex items-center justify-center">Reset</a>
+        {% endif %}
+    </form>
+
+    <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-slate-50 border-b border-slate-200 text-slate-500 text-xs uppercase tracking-widest">
+                        <th class="p-4 font-bold">Order ID & Tanggal</th>
+                        {% if dashboard.role != 'customer' %}
+                        <th class="p-4 font-bold">Customer</th>
+                        {% endif %}
+                        <th class="p-4 font-bold">Event & Venue</th>
+                        <th class="p-4 font-bold">Total Tagihan</th>
+                        <th class="p-4 font-bold">Status</th>
+                        {% if dashboard.role == 'administrator' %}
+                        <th class="p-4 font-bold text-center">Aksi (Admin)</th>
+                        {% endif %}
+                    </tr>
+                </thead>
+                <tbody class="text-sm divide-y divide-slate-100">
+                    {% for order in order_list %}
+                    <tr class="hover:bg-slate-50 transition">
+                        
+                        <td class="p-4 align-top">
+                            <p class="font-mono text-xs text-slate-800 font-bold bg-slate-100 px-2 py-1 rounded inline-block mb-1" title="{{ order.order_id }}">
+                                {{ order.order_id|truncatechars:12 }}
+                            </p>
+                            <p class="text-slate-500 text-xs">{{ order.order_date|date:"d M Y, H:i" }}</p>
+                        </td>
+
+                        {% if dashboard.role != 'customer' %}
+                        <td class="p-4 align-top">
+                            <p class="font-bold text-slate-800">{{ order.customer_name }}</p>
+                        </td>
+                        {% endif %}
+
+                        <td class="p-4 align-top">
+                            <p class="font-bold text-slate-800">{{ order.event_title }}</p>
+                            <p class="text-slate-500 text-xs mt-0.5">{{ order.venue_name }}</p>
+                        </td>
+
+                        <td class="p-4 align-top">
+                            <p class="font-bold text-slate-800">Rp {{ order.total_amount|floatformat:0 }}</p>
+                        </td>
+
+                        <td class="p-4 align-top">
+                            {% if order.payment_status == 'Paid' %}
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold bg-emerald-100 text-emerald-700 border border-emerald-200">
+                                    Lunas
+                                </span>
+                            {% elif order.payment_status == 'Pending' %}
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold bg-amber-100 text-amber-700 border border-amber-200">
+                                    Pending
+                                </span>
+                            {% else %}
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold bg-rose-100 text-rose-700 border border-rose-200">
+                                    Dibatalkan
+                                </span>
+                            {% endif %}
+                        </td>
+
+                        {% if dashboard.role == 'administrator' %}
+                        <td class="p-4 align-top text-center">
+                            <div class="flex justify-center gap-2">
+                                <button type="button" 
+                                        onclick="openUpdateModal('{{ order.order_id }}', '{{ order.payment_status }}')" 
+                                        class="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-100"
+                                        title="Update Status">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+                                    </svg>
+                                </button>
+                                
+                                <button type="button" 
+                                        onclick="openDeleteModal('{{ order.order_id }}')" 
+                                        class="p-2 text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-lg transition-colors border border-rose-100"
+                                        title="Hapus Order">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                        </td>
+                        {% endif %}
+
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="p-10 text-center text-slate-500">
+                            <div class="flex flex-col items-center justify-center">
+                                <span class="text-4xl mb-3">📄</span>
+                                <p class="font-bold text-slate-700 text-lg">Tidak ada data order</p>
+                                <p class="text-sm">Belum ada transaksi atau pencarian tidak ditemukan.</p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+{% if dashboard.role == 'administrator' %}
+<div id="deleteModal" class="fixed inset-0 bg-slate-900/60 hidden items-center justify-center z-50 backdrop-blur-sm">
+    <div class="bg-white rounded-3xl p-8 max-w-sm w-full mx-4 shadow-2xl text-center">
+        <div class="w-16 h-16 bg-rose-100 rounded-full flex items-center justify-center mx-auto mb-4 text-rose-600 text-2xl">
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+        </div>
+        <h2 class="text-xl font-bold text-slate-900 mb-2">Hapus Pesanan</h2>
+        <p class="text-slate-500 text-sm mb-6">Apakah Anda yakin ingin menghapus pesanan ini? Data yang terhapus tidak dapat dikembalikan.</p>
+        
+        <div class="flex gap-3">
+            <button type="button" onclick="closeDeleteModal()" class="flex-1 bg-slate-100 text-slate-700 font-bold py-2.5 rounded-xl hover:bg-slate-200 transition">Batal</button>
+            <form id="deleteForm" method="POST" action="" class="flex-1">
+                {% csrf_token %}
+                <button type="submit" class="w-full bg-rose-600 text-white font-bold py-2.5 rounded-xl hover:bg-rose-700 shadow-md transition">Hapus</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div id="updateModal" class="fixed inset-0 bg-slate-900/60 hidden items-center justify-center z-50 backdrop-blur-sm">
+    <div class="bg-white rounded-3xl p-8 max-w-md w-full mx-4 shadow-2xl">
+        <h2 class="text-xl font-bold text-slate-900 mb-6">Update Status Pembayaran</h2>
+        
+        <form id="updateForm" method="POST" action="">
+            {% csrf_token %}
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Nomor Pesanan</label>
+                    <input type="text" id="displayOrderId" disabled 
+                           class="w-full bg-slate-100 border border-slate-200 text-slate-500 rounded-xl px-4 py-2.5 text-sm cursor-not-allowed font-mono">
+                </div>
+                
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Status Pembayaran</label>
+                    <select name="payment_status" id="selectPaymentStatus"
+                            class="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+                        <option value="Pending">Pending</option>
+                        <option value="Paid">Paid</option>
+                        <option value="Cancelled">Cancelled</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="flex gap-3 mt-8">
+                <button type="button" onclick="closeUpdateModal()" class="flex-1 bg-slate-100 text-slate-700 font-bold py-3 rounded-xl hover:bg-slate-200 transition text-sm">Batal</button>
+                <button type="submit" class="flex-1 bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700 shadow-md transition text-sm">Simpan Perubahan</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    // --- Logic Delete ---
+    function openDeleteModal(orderId) {
+        document.getElementById('deleteModal').classList.remove('hidden');
+        document.getElementById('deleteModal').classList.add('flex');
+        document.getElementById('deleteForm').action = `/order/${orderId}/delete/`;
+    }
+    
+    function closeDeleteModal() {
+        document.getElementById('deleteModal').classList.add('hidden');
+        document.getElementById('deleteModal').classList.remove('flex');
+    }
+
+    // --- Logic Update ---
+    function openUpdateModal(orderId, currentStatus) {
+        document.getElementById('updateModal').classList.remove('hidden');
+        document.getElementById('updateModal').classList.add('flex');
+        
+        document.getElementById('displayOrderId').value = orderId;
+        document.getElementById('selectPaymentStatus').value = currentStatus;
+        document.getElementById('updateForm').action = `/order/${orderId}/update/`;
+    }
+
+    function closeUpdateModal() {
+        document.getElementById('updateModal').classList.add('hidden');
+        document.getElementById('updateModal').classList.remove('flex');
+    }
+</script>
+{% endif %}
+
+{% endblock %} 

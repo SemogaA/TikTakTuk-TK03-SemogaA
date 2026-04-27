@@ -134,14 +134,21 @@
 
                 <div class="flex gap-2 mt-auto">
                     {% if selected_status == 'past' %}
-                    <button disabled class="w-full py-2.5 bg-slate-200 text-slate-400 font-bold rounded-xl cursor-not-allowed text-sm">
-                        Event Selesai
-                    </button>
-                    {% else %}
-                    <button class="w-full py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition shadow-sm text-sm">
-                        Detail & Beli Tiket
-                    </button>
-                    {% endif %}
+<button disabled class="w-full py-2.5 bg-slate-200 text-slate-400 font-bold rounded-xl cursor-not-allowed text-sm">
+    Event Selesai
+</button>
+{% else %}
+  {% if dashboard.role == 'customer' %}
+  <a href="{% url 'checkout' event.event_id %}"
+     class="w-full py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition shadow-sm text-sm text-center block">
+    Detail & Beli Tiket
+  </a>
+  {% else %}
+  <button disabled class="w-full py-2.5 bg-slate-200 text-slate-400 font-bold rounded-xl cursor-not-allowed text-sm">
+    Login sebagai Customer untuk beli
+  </button>
+  {% endif %}
+{% endif %}
                     
                     {% if dashboard.role == 'administrator' or dashboard.role == 'organizer' %}
                     <button type="button" 
@@ -176,6 +183,8 @@
 
     </div>
 </section>
+
+
 
 {% if dashboard.role == 'administrator' or dashboard.role == 'organizer' %}
 
