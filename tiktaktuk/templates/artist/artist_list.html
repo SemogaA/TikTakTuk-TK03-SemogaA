@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto mt-8 px-4">
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h2 class="text-2xl font-bold text-[#333C4C]">Daftar Artis</h2>
+            <p class="text-sm text-slate-500 mt-1">Total Artis Terdaftar: <span class="font-semibold">{{ total_artists }}</span></p>
+        </div>
+        
+        {% if role == 'administrator' %}
+        <a href="{% url 'artist_create' %}" class="bg-[#333C4C] hover:bg-slate-800 text-[#ECF1EA] px-4 py-2 rounded-lg text-sm font-semibold transition shadow-sm">
+            + Tambah Artis
+        </a>
+        {% endif %}
+    </div>
+
+    <div class="bg-white shadow-sm rounded-lg border border-slate-200 overflow-hidden">
+        <table class="w-full text-left border-collapse">
+            <thead class="bg-[#333C4C] text-[#ECF1EA] text-sm uppercase tracking-wider">
+                <tr>
+                    <th class="px-6 py-4 font-medium">Nama Artis</th>
+                    <th class="px-6 py-4 font-medium">Genre</th>
+                    {% if role == 'administrator' %}
+                    <th class="px-6 py-4 font-medium text-center">Aksi</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody class="text-slate-700 text-sm divide-y divide-slate-100">
+                {% for artist in artists %}
+                <tr class="hover:bg-slate-50 transition">
+                    <td class="px-6 py-4 font-semibold text-slate-900">
+                        {{ artist.name }}
+                    </td>
+                    <td class="px-6 py-4">
+                        <span class="bg-slate-100 text-slate-600 px-2 py-1 rounded text-xs font-medium border border-slate-200">
+                            {{ artist.genre|default:"-" }}
+                        </span>
+                    </td>
+                    
+                    {% if role == 'administrator' %}
+                    <td class="px-6 py-4 text-center space-x-2">
+                        <a href="{% url 'artist_update' artist.artist_id %}" class="inline-block text-blue-600 hover:text-blue-800 transition font-medium">
+                            Edit
+                        </a>
+                        <form action="{% url 'artist_delete' artist.artist_id %}" method="POST" class="inline-block" onsubmit="return confirm('Apakah Anda yakin ingin menghapus artis ini? Tindakan ini tidak dapat dibatalkan.');">
+                            {% csrf_token %}
+                            <button type="submit" class="text-red-500 hover:text-red-700 transition font-medium">
+                                Hapus
+                            </button>
+                        </form>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="3" class="px-6 py-8 text-center text-slate-500">
+                        Belum ada data artis yang terdaftar.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
