@@ -1,0 +1,345 @@
+{% extends "base.html" %}
+{% block title %}Manajemen Kursi{% endblock %}
+
+{% block content %}
+<div class="p-8 max-w-6xl mx-auto w-full">
+
+  <div class="flex justify-between items-start mb-6">
+    <div>
+      <h1 class="text-2xl font-bold text-slate-900">Manajemen Kursi</h1>
+      <p class="text-slate-500 text-sm mt-1">Kelola kursi dan denah tempat duduk venue</p>
+    </div>
+    {% if dashboard.role == 'administrator' or dashboard.role == 'organizer' %}
+    <button onclick="openCreateModal()"
+      class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-lg text-sm transition shadow-sm">
+      + Tambah Kursi
+    </button>
+    {% endif %}
+  </div>
+
+  <div class="grid grid-cols-3 gap-4 mb-6">
+    <div class="bg-white border border-slate-200 rounded-xl p-5">
+      <p class="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1">Total Kursi</p>
+      <p class="text-3xl font-bold text-slate-900">{{ stats.total }}</p>
+    </div>
+    <div class="bg-white border border-slate-200 rounded-xl p-5">
+      <p class="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1">Tersedia</p>
+      <p class="text-3xl font-bold text-slate-900">{{ stats.tersedia }}</p>
+    </div>
+    <div class="bg-white border border-slate-200 rounded-xl p-5">
+      <p class="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1">Terisi</p>
+      <p class="text-3xl font-bold text-slate-900">{{ stats.terisi }}</p>
+    </div>
+  </div>
+
+  <form method="GET" action="" class="flex gap-3 mb-4">
+    <div class="relative flex-1">
+      <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">🔍</span>
+      <input type="text" name="search" value="{{ search_query }}"
+        placeholder="Cari section, baris, atau nomor..."
+        class="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+    </div>
+    <select name="venue_id" onchange="this.form.submit()"
+      class="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[180px]">
+      <option value="">Semua Venue</option>
+      {% for venue in venues %}
+      <option value="{{ venue.venue_id }}"
+        {% if selected_venue_id == venue.venue_id %}selected{% endif %}>
+        {{ venue.venue_name }}
+      </option>
+      {% endfor %}
+    </select>
+    <button type="submit"
+      class="border border-slate-200 bg-white hover:bg-slate-50 px-4 py-2 rounded-lg text-sm font-medium transition">
+      Cari
+    </button>
+  </form>
+
+  <div class="bg-white border border-slate-200 rounded-xl overflow-hidden">
+    <table class="w-full text-sm">
+      <thead class="bg-slate-50 border-b border-slate-200">
+        <tr>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider w-8"></th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Section</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Baris</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">No. Kursi</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Venue</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Status</th>
+          <th class="px-4 py-3 w-20"></th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for seat in seats %}
+        <tr class="hover:bg-slate-50 transition">
+          <td class="px-4 py-3 text-base text-slate-400">🪑</td>
+          <td class="px-4 py-3 font-medium text-slate-800">{{ seat.section }}</td>
+          <td class="px-4 py-3 text-slate-600">{{ seat.row_number }}</td>
+          <td class="px-4 py-3 text-slate-600">{{ seat.seat_number }}</td>
+          <td class="px-4 py-3 text-slate-500">
+            <span class="flex items-center gap-1">🏛 {{ seat.venue_name }}</span>
+          </td>
+          <td class="px-4 py-3">
+            {% if seat.status == "Terisi" %}
+            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-50 text-red-500 border border-red-200">
+              ⊘ TERISI
+            </span>
+            {% else %}
+            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-50 text-green-600 border border-green-200">
+              ✓ TERSEDIA
+            </span>
+            {% endif %}
+          </td>
+          <td class="px-4 py-3">
+            {% if dashboard.role == 'administrator' or dashboard.role == 'organizer' %}
+            <div class="flex items-center gap-1 justify-end">
+              <button onclick="openEditModal('{{ seat.seat_id }}')"
+                class="p-1.5 rounded hover:bg-slate-100 transition text-slate-500" title="Edit">✏️</button>
+              {% if seat.status == "Terisi" %}
+              <button disabled
+                title="Kursi ini sudah di-assign ke tiket dan tidak dapat dihapus. Hapus atau ubah tiket terlebih dahulu."
+                class="p-1.5 rounded text-slate-300 cursor-not-allowed opacity-40">🗑</button>
+              {% else %}
+              <button onclick="openDeleteModal('{{ seat.seat_id }}')"
+                class="p-1.5 rounded hover:bg-red-50 text-slate-500 hover:text-red-500 transition" title="Hapus">🗑</button>
+              {% endif %}
+            </div>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="7" class="px-4 py-10 text-center text-slate-400">Tidak ada kursi yang ditemukan.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div id="modal-create" class="fixed inset-0 bg-black/40 z-50 hidden items-center justify-center">
+  <div class="bg-white rounded-xl w-full max-w-md shadow-2xl">
+    <div class="flex justify-between items-center px-6 py-4 border-b border-slate-200">
+      <h2 class="text-base font-bold text-slate-900">Tambah Kursi Baru</h2>
+      <button onclick="closeModal('modal-create')" class="text-slate-400 hover:text-slate-700 text-lg">✕</button>
+    </div>
+    <div class="px-6 py-5 flex flex-col gap-4">
+      <div>
+        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Venue</label>
+        <select id="create-venue" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+          {% for venue in venues %}
+          <option value="{{ venue.venue_id }}">{{ venue.venue_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Section</label>
+        <input type="text" id="create-section" placeholder="cth. WVIP"
+          class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Baris</label>
+          <input type="text" id="create-row" placeholder="cth. A"
+            class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">No. Kursi</label>
+          <input type="text" id="create-seat-number" placeholder="cth. 1"
+            class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+      </div>
+      <p id="create-error" class="text-red-500 text-sm hidden"></p>
+    </div>
+    <div class="flex justify-end gap-2 px-6 py-4 border-t border-slate-200">
+      <button onclick="closeModal('modal-create')"
+        class="px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium hover:bg-slate-50 transition">Batal</button>
+      <button onclick="submitCreate()"
+        class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition">Tambah</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-edit" class="fixed inset-0 bg-black/40 z-50 hidden items-center justify-center">
+  <div class="bg-white rounded-xl w-full max-w-md shadow-2xl">
+    <div class="flex justify-between items-center px-6 py-4 border-b border-slate-200">
+      <h2 class="text-base font-bold text-slate-900">Edit Kursi</h2>
+      <button onclick="closeModal('modal-edit')" class="text-slate-400 hover:text-slate-700 text-lg">✕</button>
+    </div>
+    <div class="px-6 py-5 flex flex-col gap-4">
+      <input type="hidden" id="edit-seat-id" />
+      <div>
+        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Venue</label>
+        <select id="edit-venue" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+          {% for venue in venues %}
+          <option value="{{ venue.venue_id }}">{{ venue.venue_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Section</label>
+        <input type="text" id="edit-section"
+          class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Baris</label>
+          <input type="text" id="edit-row"
+            class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">No. Kursi</label>
+          <input type="text" id="edit-seat-number"
+            class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+      </div>
+      <p id="edit-error" class="text-red-500 text-sm hidden"></p>
+    </div>
+    <div class="flex justify-end gap-2 px-6 py-4 border-t border-slate-200">
+      <button onclick="closeModal('modal-edit')"
+        class="px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium hover:bg-slate-50 transition">Batal</button>
+      <button onclick="submitEdit()"
+        class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-delete" class="fixed inset-0 bg-black/40 z-50 hidden items-center justify-center">
+  <div class="bg-white rounded-xl w-full max-w-sm shadow-2xl">
+    <div class="flex justify-between items-center px-6 py-4 border-b border-slate-200">
+      <h2 class="text-base font-bold text-red-500">Hapus Kursi</h2>
+      <button onclick="closeModal('modal-delete')" class="text-slate-400 hover:text-slate-700 text-lg">✕</button>
+    </div>
+    <div class="px-6 py-5">
+      <input type="hidden" id="delete-seat-id" />
+      <p class="text-sm text-slate-600">Apakah Anda yakin ingin menghapus kursi ini? Tindakan ini tidak dapat dibatalkan.</p>
+      <p id="delete-error" class="text-red-500 text-sm mt-3 hidden"></p>
+    </div>
+    <div class="flex justify-end gap-2 px-6 py-4 border-t border-slate-200">
+      <button onclick="closeModal('modal-delete')"
+        class="px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium hover:bg-slate-50 transition">Batal</button>
+      <button onclick="submitDelete()"
+        class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-semibold transition">Hapus</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  function showModal(id) {
+    const el = document.getElementById(id);
+    el.classList.remove('hidden');
+    el.classList.add('flex');
+  }
+  function closeModal(id) {
+    const el = document.getElementById(id);
+    el.classList.add('hidden');
+    el.classList.remove('flex');
+  }
+
+  ['modal-create', 'modal-edit', 'modal-delete'].forEach(id => {
+    document.getElementById(id).addEventListener('click', function(e) {
+      if (e.target === this) closeModal(id);
+    });
+  });
+
+  function openCreateModal() {
+    document.getElementById('create-section').value = '';
+    document.getElementById('create-row').value = '';
+    document.getElementById('create-seat-number').value = '';
+    const err = document.getElementById('create-error');
+    err.classList.add('hidden'); err.textContent = '';
+    showModal('modal-create');
+  }
+
+  function openEditModal(seatId) {
+    const err = document.getElementById('edit-error');
+    err.classList.add('hidden'); err.textContent = '';
+
+    fetch(`/api/seats/${seatId}/`)
+      .then(r => r.json())
+      .then(data => {
+        if (!data.success) { alert(data.message); return; }
+        const s = data.seat;
+        document.getElementById('edit-seat-id').value = s.seat_id;
+        document.getElementById('edit-section').value = s.section;
+        document.getElementById('edit-row').value = s.row_number;
+        document.getElementById('edit-seat-number').value = s.seat_number;
+        const sel = document.getElementById('edit-venue');
+        for (let opt of sel.options) opt.selected = (opt.value === s.venue_id);
+        showModal('modal-edit');
+      });
+  }
+
+  function openDeleteModal(seatId) {
+    document.getElementById('delete-seat-id').value = seatId;
+    const err = document.getElementById('delete-error');
+    err.classList.add('hidden'); err.textContent = '';
+    showModal('modal-delete');
+  }
+
+  function getCsrf() {
+    for (const c of document.cookie.split(';')) {
+      const [k, v] = c.trim().split('=');
+      if (k === 'csrftoken') return v;
+    }
+    return '';
+  }
+
+  function showError(elId, msg) {
+    const el = document.getElementById(elId);
+    el.textContent = msg;
+    el.classList.remove('hidden');
+  }
+
+  function submitCreate() {
+    const payload = {
+      venue_id: document.getElementById('create-venue').value,
+      section: document.getElementById('create-section').value.trim(),
+      row_number: document.getElementById('create-row').value.trim(),
+      seat_number: document.getElementById('create-seat-number').value.trim(),
+    };
+    fetch('/api/seats/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+      body: JSON.stringify(payload),
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) location.reload();
+      else showError('create-error', data.message);
+    });
+  }
+
+  function submitEdit() {
+    const seatId = document.getElementById('edit-seat-id').value;
+    const payload = {
+      venue_id: document.getElementById('edit-venue').value,
+      section: document.getElementById('edit-section').value.trim(),
+      row_number: document.getElementById('edit-row').value.trim(),
+      seat_number: document.getElementById('edit-seat-number').value.trim(),
+    };
+    fetch(`/api/seats/${seatId}/update/`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+      body: JSON.stringify(payload),
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) location.reload();
+      else showError('edit-error', data.message);
+    });
+  }
+
+  function submitDelete() {
+    const seatId = document.getElementById('delete-seat-id').value;
+    fetch(`/api/seats/${seatId}/delete/`, {
+      method: 'DELETE',
+      headers: { 'X-CSRFToken': getCsrf() },
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) location.reload();
+      else showError('delete-error', data.message);
+    });
+  }
+</script>
+{% endblock %}

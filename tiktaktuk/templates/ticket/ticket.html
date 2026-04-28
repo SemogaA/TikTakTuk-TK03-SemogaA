@@ -1,0 +1,408 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="max-w-6xl mx-auto py-10 px-4">
+
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-900">
+                {% if dashboard.role == "customer" %}Tiket Saya{% else %}Manajemen Tiket{% endif %}
+            </h1>
+            <p class="text-slate-500 text-sm mt-0.5">
+                {% if dashboard.role == "customer" %}Kelola dan akses tiket pertunjukan Anda{% else %}Kelola tiket: tambah, ubah status, dan hapus tiket{% endif %}
+            </p>
+        </div>
+        {% if dashboard.role == "administrator" or dashboard.role == "organizer" %}
+        <button onclick="openCreateModal()"
+            class="bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 shadow text-sm font-semibold transition">
+            + Tambah Tiket
+        </button>
+        {% endif %}
+    </div>
+
+    {% if messages %}
+    <div class="mb-4 space-y-2">
+        {% for message in messages %}
+        <div class="px-4 py-3 rounded-xl text-sm font-medium
+            {% if message.tags == 'success' %}bg-green-100 text-green-700{% else %}bg-red-100 text-red-700{% endif %}">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="grid grid-cols-3 gap-4 mb-6">
+        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
+            <p class="text-xs text-slate-400 font-semibold tracking-widest uppercase mb-2">Total Tiket</p>
+            <p class="text-3xl font-bold text-slate-900">{{ summary.total_ticket|default:0 }}</p>
+        </div>
+        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
+            <p class="text-xs text-slate-400 font-semibold tracking-widest uppercase mb-2">Valid</p>
+            <p class="text-3xl font-bold text-slate-900">{{ summary.jumlah_valid|default:0 }}</p>
+        </div>
+        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
+            <p class="text-xs text-slate-400 font-semibold tracking-widest uppercase mb-2">Terpakai</p>
+            <p class="text-3xl font-bold text-slate-900">{{ summary.terpakai|default:0 }}</p>
+        </div>
+    </div>
+
+    <div class="flex gap-3 mb-6">
+        <div class="relative flex-1">
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">🔍</span>
+            <input id="searchInput" type="text" placeholder="Cari kode tiket atau nama acara..."
+                oninput="filterTickets()"
+                class="w-full border border-slate-200 rounded-xl pl-9 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+        </div>
+        <select id="statusFilter" onchange="filterTickets()"
+            class="border border-slate-200 rounded-xl px-4 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="">Semua Status</option>
+            <option value="Valid">Valid</option>
+            <option value="Terpakai">Terpakai</option>
+            <option value="Cancelled">Cancelled</option>
+        </select>
+    </div>
+
+    <div id="ticketList">
+        {% for t in tickets %}
+        <div class="ticket-card bg-white rounded-2xl shadow-sm border border-slate-100 mb-4 p-5 flex gap-4 items-start"
+             data-code="{{ t.ticket_code|lower }}"
+             data-event="{{ t.event_title|lower }}"
+             data-status="{{ t.status }}">
+
+            <div class="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+                 style="background: linear-gradient(135deg, #4F46E5, #6366F1);">
+                <span class="text-white text-lg">🎫</span>
+            </div>
+
+            <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 mb-1.5 flex-wrap">
+                    {% if t.status == "Valid" %}
+                        <span class="px-2 py-0.5 text-xs rounded-full font-semibold bg-green-100 text-green-700">VALID</span>
+                    {% elif t.status == "Terpakai" %}
+                        <span class="px-2 py-0.5 text-xs rounded-full font-semibold bg-orange-100 text-orange-700">TERPAKAI</span>
+                    {% else %}
+                        <span class="px-2 py-0.5 text-xs rounded-full font-semibold bg-red-100 text-red-700">{{ t.status|upper }}</span>
+                    {% endif %}
+                    <span class="px-2 py-0.5 text-xs rounded-full font-semibold bg-indigo-100 text-indigo-700">{{ t.category_name }}</span>
+                </div>
+
+                <h3 class="font-bold text-slate-900 text-base leading-tight">{{ t.event_title }}</h3>
+                <p class="text-xs text-slate-400 font-mono mt-0.5 mb-3">{{ t.ticket_code }}</p>
+
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-x-8 gap-y-3 text-sm">
+                    {% if t.event_datetime %}
+                    <div>
+                        <p class="text-slate-400 text-xs font-semibold uppercase tracking-wide">Jadwal</p>
+                        <p class="text-slate-700 flex items-center gap-1 mt-0.5">📅 {{ t.event_datetime }}</p>
+                    </div>
+                    {% endif %}
+                    {% if t.venue_name %}
+                    <div>
+                        <p class="text-slate-400 text-xs font-semibold uppercase tracking-wide">Lokasi</p>
+                        <p class="text-slate-700 flex items-center gap-1 mt-0.5">📍 {{ t.venue_name }}</p>
+                    </div>
+                    {% endif %}
+                    <div>
+                        <p class="text-slate-400 text-xs font-semibold uppercase tracking-wide">Kursi</p>
+                        <p class="text-slate-700 mt-0.5">{{ t.seat|default:"-" }}</p>
+                    </div>
+                    {% if t.torder_id %}
+                    <div>
+                        <p class="text-slate-400 text-xs font-semibold uppercase tracking-wide">Order</p>
+                        <p class="text-slate-700 font-mono text-xs mt-0.5">{{ t.torder_id }}</p>
+                    </div>
+                    {% endif %}
+                    {% if t.customer_name %}
+                    <div>
+                        <p class="text-slate-400 text-xs font-semibold uppercase tracking-wide">Pelanggan</p>
+                        <p class="text-slate-700 mt-0.5">{{ t.customer_name }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+
+                {% if dashboard.role == "customer" %}
+                <div class="flex items-center gap-2 mt-4">
+                    <button class="flex items-center gap-1.5 bg-slate-900 text-white text-xs px-3 py-1.5 rounded-lg hover:bg-slate-700 transition">
+                        📲 Tampilkan QR
+                    </button>
+                    <button class="flex items-center justify-center w-8 h-8 border border-slate-200 rounded-lg hover:bg-slate-50 transition text-slate-500 text-sm">⬇</button>
+                    <button class="flex items-center justify-center w-8 h-8 border border-slate-200 rounded-lg hover:bg-slate-50 transition text-slate-500 text-sm">↗</button>
+                </div>
+                {% endif %}
+
+                {% if dashboard.role == "administrator" %}
+                <div class="flex items-center gap-2 mt-4">
+                    <button onclick="openUpdateModal('{{ t.ticket_id }}', '{{ t.ticket_code }}', '{{ t.status }}')"
+                        class="flex items-center gap-1.5 text-xs px-3 py-1.5 border border-slate-200 rounded-lg hover:bg-slate-50 transition text-slate-700 font-medium">
+                        ✏ Update
+                    </button>
+                    <button onclick="openDeleteModal('{{ t.ticket_id }}', '{{ t.ticket_code }}')"
+                        class="flex items-center gap-1.5 text-xs px-3 py-1.5 border border-red-200 rounded-lg hover:bg-red-50 transition text-red-600 font-medium">
+                        🗑 Hapus
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="flex-shrink-0 flex flex-col items-center gap-1 ml-2">
+                <div class="w-16 h-16 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-center">
+                    <svg width="44" height="44" viewBox="0 0 11 11" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect x="0" y="0" width="4" height="4" rx="0.5" fill="#1e293b"/>
+                        <rect x="1" y="1" width="2" height="2" fill="white"/>
+                        <rect x="7" y="0" width="4" height="4" rx="0.5" fill="#1e293b"/>
+                        <rect x="8" y="1" width="2" height="2" fill="white"/>
+                        <rect x="0" y="7" width="4" height="4" rx="0.5" fill="#1e293b"/>
+                        <rect x="1" y="8" width="2" height="2" fill="white"/>
+                        <rect x="5" y="0" width="1" height="1" fill="#1e293b"/>
+                        <rect x="5" y="2" width="2" height="1" fill="#1e293b"/>
+                        <rect x="5" y="4" width="1" height="2" fill="#1e293b"/>
+                        <rect x="7" y="5" width="2" height="1" fill="#1e293b"/>
+                        <rect x="10" y="5" width="1" height="1" fill="#1e293b"/>
+                        <rect x="5" y="7" width="1" height="2" fill="#1e293b"/>
+                        <rect x="7" y="7" width="2" height="1" fill="#1e293b"/>
+                        <rect x="7" y="9" width="1" height="2" fill="#1e293b"/>
+                        <rect x="9" y="8" width="2" height="2" fill="#1e293b"/>
+                        <rect x="5" y="10" width="1" height="1" fill="#1e293b"/>
+                    </svg>
+                </div>
+                <p class="text-xs text-slate-400 font-semibold">SCAN ENTRY</p>
+            </div>
+
+        </div>
+        {% empty %}
+        <div class="text-center py-16 text-slate-400">
+            <p class="text-4xl mb-3">🎫</p>
+            <p class="font-semibold text-slate-600">Belum ada tiket</p>
+            <p class="text-sm mt-1">Tiket akan muncul di sini setelah dibuat</p>
+        </div>
+        {% endfor %}
+    </div>
+
+</section>
+
+
+<div id="createModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl w-full max-w-md shadow-xl">
+        <div class="flex justify-between items-center px-6 pt-6 pb-4 border-b border-slate-100">
+            <h2 class="font-bold text-lg text-slate-900">Tambah Tiket Baru</h2>
+            <button onclick="closeCreateModal()" class="text-slate-400 hover:text-slate-600 text-2xl leading-none">&times;</button>
+        </div>
+        <form method="POST" action="{% url 'create_ticket' %}" class="px-6 py-5 space-y-4">
+            {% csrf_token %}
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-widest mb-1.5">Order</label>
+                <select name="order_id" id="orderSelect" onchange="onOrderChange(this)"
+                    class="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="">-- Pilih Order --</option>
+                    {% for o in orders %}
+                    <option value="{{ o.order_id }}" data-event="{{ o.event_id }}" data-seating-type="{{ seating_type }}">
+                        {{ o.order_id }} — {{ o.customer_name }} — {{ o.event_title }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-widest mb-1.5">Kategori Tiket</label>
+                <select name="category_id" id="categorySelect"
+                    class="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="">-- Pilih Order dulu --</option>
+                    {% for c in categories %}
+                    <option value="{{ c.category_id }}" data-event="{{ c.tevent_id }}"
+                            data-quota="{{ c.quota }}" data-used="{{ c.used }}"
+                            class="cat-option" style="display:none">
+                        {{ c.category_name }} — Rp {{ c.price|floatformat:0 }} ({{ c.used }}/{{ c.quota }})
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div id="seatWrapper" class="hidden">
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-widest mb-1.5">
+                    Kursi <span class="text-slate-400 font-normal normal-case">(opsional — reserved seating)</span>
+                </label>
+                <select name="seat_id" id="seatSelect"
+                    class="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="">-- Tanpa Kursi --</option>
+                    {% for s in available_seats %}
+                    <option value="{{ s.seat_id }}" data-venue="{{ s.venue_id }}" class="seat-option" style="display:none">
+                        {{ s.section }} — Baris {{ s.row_number }}, No. {{ s.seat_number }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-widest mb-1.5">Kode Tiket</label>
+                <input type="text" disabled placeholder="Auto-generate saat dibuat"
+                    class="w-full border border-slate-100 rounded-xl px-3 py-2.5 text-sm bg-slate-50 text-slate-400 font-mono cursor-not-allowed">
+            </div>
+            <div class="flex gap-3 pt-2">
+                <button type="button" onclick="closeCreateModal()"
+                    class="flex-1 bg-slate-100 text-slate-700 py-2.5 rounded-xl text-sm font-semibold hover:bg-slate-200 transition">Batal</button>
+                <button type="submit"
+                    class="flex-1 bg-blue-600 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 transition shadow">Buat Tiket</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+
+<div id="updateModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl w-full max-w-md shadow-xl">
+        <div class="flex justify-between items-center px-6 pt-6 pb-4 border-b border-slate-100">
+            <h2 class="font-bold text-lg text-slate-900">Update Tiket</h2>
+            <button onclick="closeUpdateModal()" class="text-slate-400 hover:text-slate-600 text-2xl leading-none">&times;</button>
+        </div>
+        <form method="POST" id="updateForm" action="" class="px-6 py-5 space-y-4">
+            {% csrf_token %}
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-widest mb-1.5">Kode Tiket</label>
+                <p id="updateTicketCode" class="font-mono text-slate-900 font-semibold text-sm bg-slate-50 border border-slate-100 rounded-xl px-3 py-2.5"></p>
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-widest mb-1.5">Status</label>
+                <select name="status" id="updateStatus"
+                    class="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="Valid">Valid</option>
+                    <option value="Terpakai">Terpakai</option>
+                    <option value="Cancelled">Cancelled</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-widest mb-1.5">
+                    Kursi <span class="text-slate-400 font-normal normal-case">(opsional)</span>
+                </label>
+                <select name="seat_id"
+                    class="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="">Tanpa Kursi</option>
+                    {% for s in available_seats %}
+                    <option value="{{ s.seat_id }}">
+                        {{ s.section }} — Baris {{ s.row_number }}, No. {{ s.seat_number }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="flex gap-3 pt-2">
+                <button type="button" onclick="closeUpdateModal()"
+                    class="flex-1 bg-slate-100 text-slate-700 py-2.5 rounded-xl text-sm font-semibold hover:bg-slate-200 transition">Batal</button>
+                <button type="submit"
+                    class="flex-1 bg-blue-600 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 transition shadow flex items-center justify-center gap-1.5">
+                    ✓ Simpan
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+
+<div id="deleteModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl w-full max-w-sm shadow-xl p-6">
+        <div class="flex justify-between items-start mb-4">
+            <h2 class="font-bold text-lg text-red-600">Hapus Tiket</h2>
+            <button onclick="closeDeleteModal()" class="text-slate-400 hover:text-slate-600 text-2xl leading-none">&times;</button>
+        </div>
+        <p class="text-slate-600 text-sm mb-6">
+            Apakah Anda yakin ingin menghapus tiket ini? Relasi kursi akan dilepaskan. Tindakan ini tidak dapat dibatalkan.
+        </p>
+        <form method="POST" id="deleteForm" action="">
+            {% csrf_token %}
+            <div class="flex gap-3">
+                <button type="button" onclick="closeDeleteModal()"
+                    class="flex-1 bg-white text-slate-700 py-2.5 rounded-xl text-sm font-semibold border border-slate-200 hover:bg-slate-50 transition">Batal</button>
+                <button type="submit"
+                    class="flex-1 bg-red-600 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-red-700 transition shadow">
+                    Hapus
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+
+<script>
+function openCreateModal() {
+    const m = document.getElementById("createModal");
+    m.classList.remove("hidden"); m.classList.add("flex");
+}
+function closeCreateModal() {
+    const m = document.getElementById("createModal");
+    m.classList.add("hidden"); m.classList.remove("flex");
+}
+document.getElementById("createModal").addEventListener("click", function(e) {
+    if (e.target === this) closeCreateModal();
+});
+
+function onOrderChange(selectEl) {
+    const eventId = selectEl.options[selectEl.selectedIndex].getAttribute("data-event");
+    const catSelect = document.getElementById("categorySelect");
+    const allCatOpts = document.querySelectorAll("option.cat-option");
+
+    catSelect.innerHTML = '<option value="">-- Pilih Kategori --</option>';
+    allCatOpts.forEach(opt => {
+        if (opt.getAttribute("data-event") === eventId) {
+            const used = parseInt(opt.getAttribute("data-used") || 0);
+            const quota = parseInt(opt.getAttribute("data-quota") || 0);
+            const clone = opt.cloneNode(true);
+            clone.style.display = "";
+            if (used >= quota) { clone.disabled = true; clone.textContent += " [PENUH]"; }
+            catSelect.appendChild(clone);
+        }
+    });
+
+    const seatWrapper = document.getElementById("seatWrapper");
+    const seatSelect = document.getElementById("seatSelect");
+    const allSeatOpts = document.querySelectorAll("option.seat-option");
+    seatSelect.innerHTML = '<option value="">-- Tanpa Kursi --</option>';
+    let hasSeat = false;
+
+    const seatingType = "{{ seating_type }}"; 
+    if (seatingType === "reserved" && eventId) {
+        allSeatOpts.forEach(opt => {
+            const clone = opt.cloneNode(true);
+            clone.style.display = "";
+            seatSelect.appendChild(clone);
+            hasSeat = true;
+        });
+    }
+    seatWrapper.classList.toggle("hidden", !hasSeat);
+}
+
+function openUpdateModal(ticketId, ticketCode, currentStatus) {
+    const modal = document.getElementById("updateModal");
+    document.getElementById("updateForm").action = "/ticket/update/" + ticketId + "/";
+    document.getElementById("updateTicketCode").textContent = ticketCode;
+    const sel = document.getElementById("updateStatus");
+    Array.from(sel.options).forEach(o => { o.selected = (o.value === currentStatus); });
+    modal.classList.remove("hidden"); modal.classList.add("flex");
+}
+function closeUpdateModal() {
+    const m = document.getElementById("updateModal");
+    m.classList.add("hidden"); m.classList.remove("flex");
+}
+document.getElementById("updateModal").addEventListener("click", function(e) {
+    if (e.target === this) closeUpdateModal();
+});
+
+function openDeleteModal(ticketId, ticketCode) {
+    const modal = document.getElementById("deleteModal");
+    document.getElementById("deleteForm").action = "/ticket/delete/" + ticketId + "/";
+    modal.classList.remove("hidden"); modal.classList.add("flex");
+}
+function closeDeleteModal() {
+    const m = document.getElementById("deleteModal");
+    m.classList.add("hidden"); m.classList.remove("flex");
+}
+document.getElementById("deleteModal").addEventListener("click", function(e) {
+    if (e.target === this) closeDeleteModal();
+});
+
+function filterTickets() {
+    const s = document.getElementById("searchInput").value.toLowerCase().trim();
+    const st = document.getElementById("statusFilter").value;
+    document.querySelectorAll(".ticket-card").forEach(card => {
+        const matchS = !s || card.dataset.code.includes(s) || card.dataset.event.includes(s);
+        const matchSt = !st || card.dataset.status === st;
+        card.style.display = (matchS && matchSt) ? "flex" : "none";
+    });
+}
+</script>
+
+{% endblock %}

@@ -6,4 +6,5 @@ urlpatterns = [
     path('create/', venue_views.create_view, name='venue_create'),
     path('update/<uuid:venue_id>/', venue_views.update_view, name='venue_update'),
     path('delete/<uuid:venue_id>/', venue_views.delete_view, name='venue_delete'),
+    
 ]
