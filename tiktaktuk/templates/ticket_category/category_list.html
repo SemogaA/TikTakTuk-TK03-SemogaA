@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto mt-8 px-4">
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h2 class="text-2xl font-bold text-[#333C4C]">Daftar Kategori Tiket</h2>
+            <p class="text-sm text-slate-500 mt-1">Total Kategori: <span class="font-semibold">{{ total_categories }}</span></p>
+        </div>
+        
+        {% if role == 'administrator' or role == 'organizer' %}
+        <a href="{% url 'category_create' %}" class="bg-[#333C4C] hover:bg-slate-800 text-[#ECF1EA] px-4 py-2 rounded-lg text-sm font-semibold transition shadow-sm">
+            + Tambah Kategori
+        </a>
+        {% endif %}
+    </div>
+
+    {% if error %}
+    <div class="mb-4 p-4 bg-red-100 border-l-4 border-red-500 text-red-700 text-sm">
+        {{ error }}
+    </div>
+    {% endif %}
+
+    <div class="bg-white shadow-sm rounded-lg border border-slate-200 overflow-hidden">
+        <table class="w-full text-left border-collapse">
+            <thead class="bg-[#333C4C] text-[#ECF1EA] text-sm uppercase tracking-wider">
+                <tr>
+                    <th class="px-6 py-4 font-medium">Nama Kategori</th>
+                    <th class="px-6 py-4 font-medium">Event ID</th>
+                    <th class="px-6 py-4 font-medium">Harga (Rp)</th>
+                    <th class="px-6 py-4 font-medium text-center">Kuota</th>
+                    {% if role == 'administrator' or role == 'organizer' %}
+                    <th class="px-6 py-4 font-medium text-center">Aksi</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody class="text-slate-700 text-sm divide-y divide-slate-100">
+                {% for cat in categories %}
+                <tr class="hover:bg-slate-50 transition border-b border-slate-100">
+                    <td class="px-6 py-4 font-semibold text-slate-900">
+                        {{ cat.category_name }}
+                    </td>
+                    <td class="px-6 py-4 text-xs font-mono text-slate-500">
+                        {{ cat.tevent_id }}
+                    </td>
+                    <td class="px-6 py-4 font-medium text-blue-600">
+                        Rp {{ cat.price }}
+                    </td>
+                    <td class="px-6 py-4 text-center">
+                        <span class="bg-slate-100 text-slate-600 px-2 py-1 rounded text-xs font-medium border border-slate-200">
+                            {{ cat.quota }} tiket
+                        </span>
+                    </td>
+                    
+                    {% if role == 'administrator' or role == 'organizer' %}
+                    <td class="px-6 py-4 text-center space-x-3">
+                        <a href="{% url 'category_update' cat.category_id %}" class="inline-block text-blue-600 hover:text-blue-800 transition font-medium">
+                            Edit
+                        </a>
+                        <form action="{% url 'category_delete' cat.category_id %}" method="POST" class="inline-block" onsubmit="return confirm('Yakin ingin menghapus kategori tiket ini? Tindakan ini tidak dapat dibatalkan.');">
+                            {% csrf_token %}
+                            <button type="submit" class="text-red-500 hover:text-red-700 transition font-medium">
+                                Hapus
+                            </button>
+                        </form>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="px-6 py-12 text-center text-slate-500">
+                        <div class="flex flex-col items-center">
+                            <span class="text-4xl mb-2">🎟️</span>
+                            <p>Belum ada kategori tiket yang tersedia untuk saat ini.</p>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
