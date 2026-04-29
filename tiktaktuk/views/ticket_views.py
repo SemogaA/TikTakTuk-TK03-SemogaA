@@ -21,12 +21,13 @@ def _get_orders_with_event(session_id):
             cursor.execute("""
                 SELECT DISTINCT
                     o.order_id, c.full_name AS customer_name,
-                    e.event_title, e.event_id
+                    e.event_title, e.event_id, v.seating_type
                 FROM "ORDER" o
                 JOIN CUSTOMER c ON o.customer_id = c.customer_id
                 JOIN TICKET t ON o.order_id = t.torder_id
                 JOIN TICKET_CATEGORY tc ON t.tcategory_id = tc.category_id
                 JOIN EVENT e ON tc.tevent_id = e.event_id
+                JOIN VENUE v ON e.venue_id = v.venue_id
                 ORDER BY o.order_id;
             """)
         elif role == 'organizer':
@@ -38,12 +39,13 @@ def _get_orders_with_event(session_id):
             cursor.execute("""
                 SELECT DISTINCT
                     o.order_id, c.full_name AS customer_name,
-                    e.event_title, e.event_id
+                    e.event_title, e.event_id, v.seating_type
                 FROM "ORDER" o
                 JOIN CUSTOMER c ON o.customer_id = c.customer_id
                 JOIN TICKET t ON o.order_id = t.torder_id
                 JOIN TICKET_CATEGORY tc ON t.tcategory_id = tc.category_id
                 JOIN EVENT e ON tc.tevent_id = e.event_id
+                JOIN VENUE v ON e.venue_id = v.venue_id
                 WHERE e.organizer_id = %s
                 ORDER BY o.order_id;
             """, [org_res[0]])
@@ -111,8 +113,15 @@ def _get_available_seats_for_event(event_id):
             JOIN VENUE v ON s.venue_id = v.venue_id
             JOIN EVENT e ON e.venue_id = v.venue_id
             WHERE e.event_id = %s
-            AND s.seat_id NOT IN (
-                SELECT seat_id FROM HAS_RELATIONSHIP
+            AND NOT EXISTS (
+                SELECT 1
+                FROM HAS_RELATIONSHIP hr
+                JOIN TICKET t ON hr.ticket_id = t.ticket_id
+                JOIN "ORDER" o ON t.torder_id = o.order_id
+                JOIN TICKET_CATEGORY tc ON t.tcategory_id = tc.category_id
+                WHERE hr.seat_id = s.seat_id
+                  AND tc.tevent_id = e.event_id
+                  AND o.payment_status != 'Cancelled'
             )
             ORDER BY s.section, s.row_number, s.seat_number;
         """, [event_id])
@@ -155,19 +164,21 @@ def my_tickets(request):
     orders = []
     categories = []
     available_seats = []
-
-    if orders:
-        first_event_id = orders[0]['event_id']
-        seat_data = _get_available_seats_for_event(first_event_id)
-        available_seats = seat_data.get('seats', [])
-        seating_type = seat_data.get('seating_type', None)
-    else:
-        available_seats = []
-        seating_type = None
+    seating_type = None
 
     if role in ('administrator', 'organizer'):
         orders = _get_orders_with_event(session_id)
         categories = _get_categories_with_used(session_id)
+        seen_event_ids = set()
+        for order in orders:
+            event_id = order.get('event_id')
+            if not event_id or event_id in seen_event_ids:
+                continue
+            seen_event_ids.add(event_id)
+            seat_data = _get_available_seats_for_event(event_id)
+            for seat in seat_data.get('seats', []):
+                seat['event_id'] = event_id
+                available_seats.append(seat)
 
     context = {
         'dashboard':       {'role': role},

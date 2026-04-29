@@ -6,7 +6,7 @@ from .user import validate_session, get_user_role_by_session
 def create_seat(session_id, venue_id, section, row_number, seat_number):
     """
     note: admin dan organizer nambahin layout kursi ke venue tertentu.
-    hanya bisa ditambahin ke venue yang seating_type nya 'reserved'.
+    setiap kursi melekat ke satu venue.
     """
     with connection.cursor() as cursor:
         user_id = validate_session(session_id)
@@ -15,12 +15,11 @@ def create_seat(session_id, venue_id, section, row_number, seat_number):
         if not user_id or (role != 'administrator' and role != 'organizer'):
             return None
 
-        # validasi: pastikan venue-nya tipe reserved
         cursor.execute(
-            "SELECT seating_type FROM VENUE WHERE venue_id = %s;", [venue_id])
+            "SELECT 1 FROM VENUE WHERE venue_id = %s;", [venue_id])
         venue_data = cursor.fetchone()
-        if not venue_data or venue_data[0] != 'reserved':
-            print("error: kursi hanya bisa ditambahkan ke venue dengan reserved seating!")
+        if not venue_data:
+            print("error: venue tidak ditemukan!")
             return None
 
         try:
@@ -35,7 +34,7 @@ def create_seat(session_id, venue_id, section, row_number, seat_number):
             return None
 
 
-def update_seat(session_id, seat_id, section, row_number, seat_number):
+def update_seat(session_id, seat_id, venue_id, section, row_number, seat_number):
     """
     note: admin/organizer update detail kursi.
     """
@@ -46,13 +45,20 @@ def update_seat(session_id, seat_id, section, row_number, seat_number):
         if not user_id or (role != 'administrator' and role != 'organizer'):
             return False
 
+        cursor.execute(
+            "SELECT 1 FROM VENUE WHERE venue_id = %s;", [venue_id])
+        venue_data = cursor.fetchone()
+        if not venue_data:
+            print("error: venue tidak ditemukan!")
+            return False
+
         try:
             cursor.execute("""
                 UPDATE SEAT 
-                SET section = %s, row_number = %s, seat_number = %s
+                SET venue_id = %s, section = %s, row_number = %s, seat_number = %s
                 WHERE seat_id = %s;
-            """, [section, row_number, seat_number, seat_id])
-            return True
+            """, [venue_id, section, row_number, seat_number, seat_id])
+            return cursor.rowcount > 0
         except Exception as e:
             print(f"error update seat: {e}")
             return False

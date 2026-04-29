@@ -19,6 +19,16 @@ def check_seat_availability(cursor, seat_id, event_id):
     return cursor.fetchone() is None
 
 
+def check_seat_belongs_to_event(cursor, seat_id, event_id):
+    cursor.execute("""
+        SELECT 1
+        FROM SEAT s
+        JOIN EVENT e ON s.venue_id = e.venue_id
+        WHERE s.seat_id = %s AND e.event_id = %s;
+    """, [seat_id, event_id])
+    return cursor.fetchone() is not None
+
+
 def create_ticket(session_id, tcategory_id, torder_id, seat_id=None):
     """
     note: admin & organizer bisa bikin tiket manual.
@@ -45,6 +55,17 @@ def create_ticket(session_id, tcategory_id, torder_id, seat_id=None):
             return None
         event_id, event_org_id, seating_type = ev_data
 
+        cursor.execute("""
+            SELECT DISTINCT tc.tevent_id
+            FROM TICKET t
+            JOIN TICKET_CATEGORY tc ON t.tcategory_id = tc.category_id
+            WHERE t.torder_id = %s;
+        """, [torder_id])
+        order_event_ids = {row[0] for row in cursor.fetchall()}
+        if event_id not in order_event_ids:
+            print("error: kategori tiket tidak sesuai dengan event dari order!")
+            return None
+
         # validasi kepemilikan organizer
         if role == 'organizer':
             cursor.execute(
@@ -53,10 +74,30 @@ def create_ticket(session_id, tcategory_id, torder_id, seat_id=None):
             if not org_res or org_res[0] != event_org_id:
                 return None
 
+        cursor.execute("""
+            SELECT tc.quota,
+                   COALESCE((
+                       SELECT COUNT(*)
+                       FROM TICKET t
+                       JOIN "ORDER" o ON t.torder_id = o.order_id
+                       WHERE t.tcategory_id = tc.category_id
+                         AND o.payment_status != 'Cancelled'
+                   ), 0) AS used
+            FROM TICKET_CATEGORY tc
+            WHERE tc.category_id = %s;
+        """, [tcategory_id])
+        quota_res = cursor.fetchone()
+        if not quota_res or quota_res[1] >= quota_res[0]:
+            print("error: kuota kategori tiket sudah penuh!")
+            return None
+
         # validasi rule kursi
         if seating_type == 'reserved':
             if not seat_id:
                 print("error: venue reserved seating wajib mengisi seat_id!")
+                return None
+            if not check_seat_belongs_to_event(cursor, seat_id, event_id):
+                print("error: kursi tidak sesuai dengan venue event!")
                 return None
             if not check_seat_availability(cursor, seat_id, event_id):
                 print("error: kursi sudah terisi oleh orang lain!")
@@ -113,12 +154,26 @@ def get_all_tickets(session_id):
             """
             base_query = """
                 SELECT t.ticket_id, t.ticket_code, t.status, 
-                       tc.category_name, e.event_title, c.full_name as customer_name
+                       tc.category_name, tc.price, e.event_id, e.event_title, e.event_datetime,
+                       v.venue_name, v.seating_type, o.order_id AS torder_id,
+                       s.seat_id,
+                       c.full_name as customer_name,
+                       CASE
+                           WHEN s.seat_id IS NULL THEN NULL
+                           ELSE s.section || ' ' || s.row_number || '-' || s.seat_number
+                       END AS seat,
+                       CASE
+                           WHEN s.seat_id IS NULL THEN NULL
+                           ELSE s.section || ' - Baris ' || s.row_number || ', No. ' || s.seat_number
+                       END AS seat_label
                 FROM TICKET t
                 JOIN TICKET_CATEGORY tc ON t.tcategory_id = tc.category_id
                 JOIN EVENT e ON tc.tevent_id = e.event_id
+                JOIN VENUE v ON e.venue_id = v.venue_id
                 JOIN "ORDER" o ON t.torder_id = o.order_id
                 JOIN CUSTOMER c ON o.customer_id = c.customer_id
+                LEFT JOIN HAS_RELATIONSHIP hr ON t.ticket_id = hr.ticket_id
+                LEFT JOIN SEAT s ON hr.seat_id = s.seat_id
                 ORDER BY e.event_datetime DESC;
             """
 
@@ -143,12 +198,26 @@ def get_all_tickets(session_id):
             """
             base_query = """
                 SELECT t.ticket_id, t.ticket_code, t.status, 
-                       tc.category_name, e.event_title, c.full_name as customer_name
+                       tc.category_name, tc.price, e.event_id, e.event_title, e.event_datetime,
+                       v.venue_name, v.seating_type, o.order_id AS torder_id,
+                       s.seat_id,
+                       c.full_name as customer_name,
+                       CASE
+                           WHEN s.seat_id IS NULL THEN NULL
+                           ELSE s.section || ' ' || s.row_number || '-' || s.seat_number
+                       END AS seat,
+                       CASE
+                           WHEN s.seat_id IS NULL THEN NULL
+                           ELSE s.section || ' - Baris ' || s.row_number || ', No. ' || s.seat_number
+                       END AS seat_label
                 FROM TICKET t
                 JOIN TICKET_CATEGORY tc ON t.tcategory_id = tc.category_id
                 JOIN EVENT e ON tc.tevent_id = e.event_id
+                JOIN VENUE v ON e.venue_id = v.venue_id
                 JOIN "ORDER" o ON t.torder_id = o.order_id
                 JOIN CUSTOMER c ON o.customer_id = c.customer_id
+                LEFT JOIN HAS_RELATIONSHIP hr ON t.ticket_id = hr.ticket_id
+                LEFT JOIN SEAT s ON hr.seat_id = s.seat_id
                 WHERE e.organizer_id = %s
                 ORDER BY e.event_datetime DESC;
             """
@@ -173,12 +242,26 @@ def get_all_tickets(session_id):
             """
             base_query = """
                 SELECT t.ticket_id, t.ticket_code, t.status, 
-                       tc.category_name, e.event_title, e.event_datetime, v.venue_name
+                       tc.category_name, tc.price, e.event_id, e.event_title, e.event_datetime,
+                       v.venue_name, v.seating_type, o.order_id AS torder_id,
+                       s.seat_id,
+                       c.full_name AS customer_name,
+                       CASE
+                           WHEN s.seat_id IS NULL THEN NULL
+                           ELSE s.section || ' ' || s.row_number || '-' || s.seat_number
+                       END AS seat,
+                       CASE
+                           WHEN s.seat_id IS NULL THEN NULL
+                           ELSE s.section || ' - Baris ' || s.row_number || ', No. ' || s.seat_number
+                       END AS seat_label
                 FROM TICKET t
                 JOIN TICKET_CATEGORY tc ON t.tcategory_id = tc.category_id
                 JOIN EVENT e ON tc.tevent_id = e.event_id
                 JOIN VENUE v ON e.venue_id = v.venue_id
                 JOIN "ORDER" o ON t.torder_id = o.order_id
+                JOIN CUSTOMER c ON o.customer_id = c.customer_id
+                LEFT JOIN HAS_RELATIONSHIP hr ON t.ticket_id = hr.ticket_id
+                LEFT JOIN SEAT s ON hr.seat_id = s.seat_id
                 WHERE o.customer_id = %s
                 ORDER BY e.event_datetime ASC;
             """
@@ -232,16 +315,23 @@ def update_ticket(session_id, ticket_id, status, seat_id=None):
         if not user_id or role != 'administrator':
             return False
 
-        # ambil event_id tiket ini buat validasi kursi
+        if status not in ('Valid', 'Terpakai', 'Cancelled'):
+            return False
+
+        # ambil event_id, tipe seating, dan kursi saat ini buat validasi kursi
         cursor.execute("""
-            SELECT tc.tevent_id FROM TICKET_CATEGORY tc
-            JOIN TICKET t ON tc.category_id = t.tcategory_id
+            SELECT tc.tevent_id, v.seating_type, hr.seat_id
+            FROM TICKET t
+            JOIN TICKET_CATEGORY tc ON t.tcategory_id = tc.category_id
+            JOIN EVENT e ON tc.tevent_id = e.event_id
+            JOIN VENUE v ON e.venue_id = v.venue_id
+            LEFT JOIN HAS_RELATIONSHIP hr ON t.ticket_id = hr.ticket_id
             WHERE t.ticket_id = %s;
         """, [ticket_id])
-        ev_res = cursor.fetchone()
-        if not ev_res:
+        ticket_res = cursor.fetchone()
+        if not ticket_res:
             return False
-        event_id = ev_res[0]
+        event_id, seating_type, current_seat_id = ticket_res
 
         try:
             with transaction.atomic():
@@ -249,15 +339,18 @@ def update_ticket(session_id, ticket_id, status, seat_id=None):
                     UPDATE TICKET SET status = %s WHERE ticket_id = %s;
                 """, [status, ticket_id])
 
-                # opsional: kalau admin mau ganti/assign kursi
-                if seat_id:
-                    # mastiin kursi yg mau di-assign ini kosong
-                    if not check_seat_availability(cursor, seat_id, event_id):
+                # Opsi "Tanpa Kursi" melepas relasi kursi dari tiket.
+                cursor.execute(
+                    "DELETE FROM HAS_RELATIONSHIP WHERE ticket_id = %s;", [ticket_id])
+
+                if seat_id and seating_type == 'reserved':
+                    if not check_seat_belongs_to_event(cursor, seat_id, event_id):
+                        print("error: kursi pengganti tidak sesuai dengan venue event!")
+                        raise Exception("kursi tidak sesuai event")
+                    if seat_id != str(current_seat_id) and not check_seat_availability(cursor, seat_id, event_id):
                         print("error: kursi pengganti sudah terisi!")
                         raise Exception("kursi tidak tersedia")
 
-                    cursor.execute(
-                        "DELETE FROM HAS_RELATIONSHIP WHERE ticket_id = %s;", [ticket_id])
                     cursor.execute("""
                         INSERT INTO HAS_RELATIONSHIP (seat_id, ticket_id)
                         VALUES (%s, %s);
@@ -279,5 +372,7 @@ def delete_ticket(session_id, ticket_id):
         if not user_id or role != 'administrator':
             return False
 
-        cursor.execute("DELETE FROM TICKET WHERE ticket_id = %s;", [ticket_id])
+        with transaction.atomic():
+            cursor.execute("DELETE FROM HAS_RELATIONSHIP WHERE ticket_id = %s;", [ticket_id])
+            cursor.execute("DELETE FROM TICKET WHERE ticket_id = %s;", [ticket_id])
     return True

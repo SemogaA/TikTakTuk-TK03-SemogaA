@@ -132,7 +132,7 @@
 
                 {% if dashboard.role == "administrator" %}
                 <div class="flex items-center gap-2 mt-4">
-                    <button onclick="openUpdateModal('{{ t.ticket_id }}', '{{ t.ticket_code }}', '{{ t.status }}')"
+                    <button onclick="openUpdateModal('{{ t.ticket_id }}', '{{ t.ticket_code|escapejs }}', '{{ t.status|escapejs }}', '{{ t.event_id }}', '{{ t.seating_type|escapejs }}', '{{ t.seat_id|default:'' }}', '{{ t.seat_label|default:''|escapejs }}')"
                         class="flex items-center gap-1.5 text-xs px-3 py-1.5 border border-slate-200 rounded-lg hover:bg-slate-50 transition text-slate-700 font-medium">
                         ✏ Update
                     </button>
@@ -195,7 +195,7 @@
                     class="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <option value="">-- Pilih Order --</option>
                     {% for o in orders %}
-                    <option value="{{ o.order_id }}" data-event="{{ o.event_id }}" data-seating-type="{{ seating_type }}">
+                    <option value="{{ o.order_id }}" data-event="{{ o.event_id }}" data-seating-type="{{ o.seating_type }}">
                         {{ o.order_id }} — {{ o.customer_name }} — {{ o.event_title }}
                     </option>
                     {% endfor %}
@@ -221,9 +221,9 @@
                 </label>
                 <select name="seat_id" id="seatSelect"
                     class="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option value="">-- Tanpa Kursi --</option>
+                    <option value="">-- Pilih Kursi --</option>
                     {% for s in available_seats %}
-                    <option value="{{ s.seat_id }}" data-venue="{{ s.venue_id }}" class="seat-option" style="display:none">
+                    <option value="{{ s.seat_id }}" data-event="{{ s.event_id }}" class="seat-option" style="display:none">
                         {{ s.section }} — Baris {{ s.row_number }}, No. {{ s.seat_number }}
                     </option>
                     {% endfor %}
@@ -270,11 +270,11 @@
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-widest mb-1.5">
                     Kursi <span class="text-slate-400 font-normal normal-case">(opsional)</span>
                 </label>
-                <select name="seat_id"
+                <select name="seat_id" id="updateSeatSelect"
                     class="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <option value="">Tanpa Kursi</option>
                     {% for s in available_seats %}
-                    <option value="{{ s.seat_id }}">
+                    <option value="{{ s.seat_id }}" data-event="{{ s.event_id }}" class="update-seat-option" style="display:none">
                         {{ s.section }} — Baris {{ s.row_number }}, No. {{ s.seat_number }}
                     </option>
                     {% endfor %}
@@ -294,21 +294,21 @@
 
 
 <div id="deleteModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
-    <div class="bg-white rounded-2xl w-full max-w-sm shadow-xl p-6">
+    <div class="bg-white rounded-2xl w-full max-w-md shadow-xl p-6">
         <div class="flex justify-between items-start mb-4">
             <h2 class="font-bold text-lg text-red-600">Hapus Tiket</h2>
             <button onclick="closeDeleteModal()" class="text-slate-400 hover:text-slate-600 text-2xl leading-none">&times;</button>
         </div>
-        <p class="text-slate-600 text-sm mb-6">
+        <p class="text-slate-600 text-sm mb-8 leading-relaxed">
             Apakah Anda yakin ingin menghapus tiket ini? Relasi kursi akan dilepaskan. Tindakan ini tidak dapat dibatalkan.
         </p>
         <form method="POST" id="deleteForm" action="">
             {% csrf_token %}
-            <div class="flex gap-3">
+            <div class="flex justify-end gap-3">
                 <button type="button" onclick="closeDeleteModal()"
-                    class="flex-1 bg-white text-slate-700 py-2.5 rounded-xl text-sm font-semibold border border-slate-200 hover:bg-slate-50 transition">Batal</button>
+                    class="px-6 bg-white text-slate-700 py-2.5 rounded-xl text-sm font-semibold border border-slate-200 hover:bg-slate-50 transition">Batal</button>
                 <button type="submit"
-                    class="flex-1 bg-red-600 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-red-700 transition shadow">
+                    class="px-6 bg-red-600 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-red-700 transition shadow">
                     Hapus
                 </button>
             </div>
@@ -330,13 +330,18 @@ document.getElementById("createModal").addEventListener("click", function(e) {
     if (e.target === this) closeCreateModal();
 });
 
+const createCategoryOptionTemplates = Array.from(document.querySelectorAll("option.cat-option")).map(opt => opt.cloneNode(true));
+const createSeatOptionTemplates = Array.from(document.querySelectorAll("option.seat-option")).map(opt => opt.cloneNode(true));
+const updateSeatOptionTemplates = Array.from(document.querySelectorAll("option.update-seat-option")).map(opt => opt.cloneNode(true));
+
 function onOrderChange(selectEl) {
-    const eventId = selectEl.options[selectEl.selectedIndex].getAttribute("data-event");
+    const selectedOption = selectEl.options[selectEl.selectedIndex];
+    const eventId = selectedOption ? selectedOption.getAttribute("data-event") : "";
+    const seatingType = selectedOption ? selectedOption.getAttribute("data-seating-type") : "";
     const catSelect = document.getElementById("categorySelect");
-    const allCatOpts = document.querySelectorAll("option.cat-option");
 
     catSelect.innerHTML = '<option value="">-- Pilih Kategori --</option>';
-    allCatOpts.forEach(opt => {
+    createCategoryOptionTemplates.forEach(opt => {
         if (opt.getAttribute("data-event") === eventId) {
             const used = parseInt(opt.getAttribute("data-used") || 0);
             const quota = parseInt(opt.getAttribute("data-quota") || 0);
@@ -349,28 +354,55 @@ function onOrderChange(selectEl) {
 
     const seatWrapper = document.getElementById("seatWrapper");
     const seatSelect = document.getElementById("seatSelect");
-    const allSeatOpts = document.querySelectorAll("option.seat-option");
-    seatSelect.innerHTML = '<option value="">-- Tanpa Kursi --</option>';
+    seatSelect.innerHTML = '<option value="">-- Pilih Kursi --</option>';
     let hasSeat = false;
 
-    const seatingType = "{{ seating_type }}"; 
     if (seatingType === "reserved" && eventId) {
-        allSeatOpts.forEach(opt => {
-            const clone = opt.cloneNode(true);
-            clone.style.display = "";
-            seatSelect.appendChild(clone);
-            hasSeat = true;
+        createSeatOptionTemplates.forEach(opt => {
+            if (opt.getAttribute("data-event") === eventId) {
+                const clone = opt.cloneNode(true);
+                clone.style.display = "";
+                seatSelect.appendChild(clone);
+                hasSeat = true;
+            }
         });
     }
-    seatWrapper.classList.toggle("hidden", !hasSeat);
+    seatWrapper.classList.toggle("hidden", seatingType !== "reserved");
+    seatSelect.required = seatingType === "reserved";
+    seatSelect.disabled = seatingType !== "reserved";
+    if (seatingType === "reserved" && !hasSeat) {
+        seatSelect.innerHTML = '<option value="">Tidak ada kursi tersedia</option>';
+    }
 }
 
-function openUpdateModal(ticketId, ticketCode, currentStatus) {
+function openUpdateModal(ticketId, ticketCode, currentStatus, eventId, seatingType, currentSeatId, currentSeatLabel) {
     const modal = document.getElementById("updateModal");
-    document.getElementById("updateForm").action = "/ticket/update/" + ticketId + "/";
+    document.getElementById("updateForm").action = "/tickets/update/" + ticketId + "/";
     document.getElementById("updateTicketCode").textContent = ticketCode;
     const sel = document.getElementById("updateStatus");
     Array.from(sel.options).forEach(o => { o.selected = (o.value === currentStatus); });
+
+    const seatSelect = document.getElementById("updateSeatSelect");
+    seatSelect.innerHTML = '<option value="">Tanpa Kursi</option>';
+
+    if (currentSeatId) {
+        const currentOpt = document.createElement("option");
+        currentOpt.value = currentSeatId;
+        currentOpt.textContent = currentSeatLabel || "Kursi saat ini";
+        currentOpt.selected = true;
+        seatSelect.appendChild(currentOpt);
+    }
+
+    if (seatingType === "reserved" && eventId) {
+        updateSeatOptionTemplates.forEach(opt => {
+            if (opt.getAttribute("data-event") === eventId && opt.value !== currentSeatId) {
+                const clone = opt.cloneNode(true);
+                clone.style.display = "";
+                seatSelect.appendChild(clone);
+            }
+        });
+    }
+
     modal.classList.remove("hidden"); modal.classList.add("flex");
 }
 function closeUpdateModal() {
@@ -383,7 +415,7 @@ document.getElementById("updateModal").addEventListener("click", function(e) {
 
 function openDeleteModal(ticketId, ticketCode) {
     const modal = document.getElementById("deleteModal");
-    document.getElementById("deleteForm").action = "/ticket/delete/" + ticketId + "/";
+    document.getElementById("deleteForm").action = "/tickets/delete/" + ticketId + "/";
     modal.classList.remove("hidden"); modal.classList.add("flex");
 }
 function closeDeleteModal() {

@@ -3,6 +3,7 @@ from django.http import JsonResponse
 from django.shortcuts import render, redirect
 from django.db import connection
 
+from tiktaktuk.services import user as user_service 
 from tiktaktuk.services.utils import dictfetchall
 from tiktaktuk.services.user import validate_session, get_user_role_by_session
 from tiktaktuk.services.seat import create_seat, update_seat, delete_seat
@@ -17,10 +18,13 @@ def _get_all_seats(search_query=None, venue_id=None):
             s.seat_number,
             s.venue_id,
             v.venue_name,
-            CASE WHEN hr.seat_id IS NOT NULL THEN 'Terisi' ELSE 'Tersedia' END AS status
+            CASE WHEN assigned.seat_id IS NOT NULL THEN 'Terisi' ELSE 'Tersedia' END AS status
         FROM SEAT s
         JOIN VENUE v ON s.venue_id = v.venue_id
-        LEFT JOIN HAS_RELATIONSHIP hr ON s.seat_id = hr.seat_id
+        LEFT JOIN (
+            SELECT DISTINCT seat_id
+            FROM HAS_RELATIONSHIP
+        ) assigned ON s.seat_id = assigned.seat_id
     """
     filters, params = [], []
     if search_query:
@@ -41,7 +45,7 @@ def _get_seat_stats():
     with connection.cursor() as cursor:
         cursor.execute("SELECT COUNT(*) FROM SEAT;")
         total = cursor.fetchone()[0]
-        cursor.execute("SELECT COUNT(*) FROM HAS_RELATIONSHIP;")
+        cursor.execute("SELECT COUNT(DISTINCT seat_id) FROM HAS_RELATIONSHIP;")
         terisi = cursor.fetchone()[0]
     return {"total": total, "tersedia": total - terisi, "terisi": terisi}
 
@@ -70,6 +74,39 @@ def _is_seat_assigned(seat_id):
         return cursor.fetchone() is not None
 
 
+# def seat_management_page(request):
+#     session_id = request.COOKIES.get("session_id")
+#     user_id = validate_session(session_id)
+#     role = get_user_role_by_session(session_id)
+
+#     if not user_id:
+#         return redirect("/login")
+
+#     search_query = request.GET.get("search", "")
+#     venue_filter = request.GET.get("venue_id", "")
+
+#     seats = _get_all_seats(
+#         search_query=search_query if search_query else None,
+#         venue_id=venue_filter if venue_filter else None,
+#     )
+#     stats = _get_seat_stats()
+#     venues = _get_all_venues()
+
+#     for s in seats:
+#         s['seat_id'] = str(s['seat_id'])
+#         s['venue_id'] = str(s['venue_id'])
+#     for v in venues:
+#         v['venue_id'] = str(v['venue_id'])
+
+#     return render(request, "seat/seat.html", {
+#         "dashboard": {"role": role},
+#         "seats": seats,
+#         "stats": stats,
+#         "venues": venues,
+#         "search_query": search_query,
+#         "selected_venue_id": venue_filter,
+#     })
+
 def seat_management_page(request):
     session_id = request.COOKIES.get("session_id")
     user_id = validate_session(session_id)
@@ -77,6 +114,9 @@ def seat_management_page(request):
 
     if not user_id:
         return redirect("/login")
+
+    # TAMBAH INI
+    profile_data = user_service.get_profile_data(session_id)
 
     search_query = request.GET.get("search", "")
     venue_filter = request.GET.get("venue_id", "")
@@ -96,13 +136,13 @@ def seat_management_page(request):
 
     return render(request, "seat/seat.html", {
         "dashboard": {"role": role},
+        "username": profile_data.get('username', ''),  
         "seats": seats,
         "stats": stats,
         "venues": venues,
         "search_query": search_query,
         "selected_venue_id": venue_filter,
     })
-
 
 def api_create_seat(request):
     if request.method != "POST":
@@ -127,7 +167,7 @@ def api_create_seat(request):
     if result is None:
         return JsonResponse({
             "success": False,
-            "message": "Gagal menambah kursi. Pastikan venue bertipe 'reserved' dan Anda memiliki akses."
+            "message": "Gagal menambah kursi. Pastikan venue valid dan Anda memiliki akses."
         }, status=400)
 
     return JsonResponse({"success": True, "message": "Kursi berhasil ditambahkan."})
@@ -143,14 +183,15 @@ def api_update_seat(request, seat_id):
     except json.JSONDecodeError:
         return JsonResponse({"success": False, "message": "Request tidak valid."}, status=400)
 
+    venue_id = data.get("venue_id")
     section = data.get("section", "").strip()
     row_number = data.get("row_number", "").strip()
     seat_number = data.get("seat_number", "").strip()
 
-    if not all([section, row_number, seat_number]):
+    if not all([venue_id, section, row_number, seat_number]):
         return JsonResponse({"success": False, "message": "Semua field wajib diisi."}, status=400)
 
-    success = update_seat(session_id, seat_id, section, row_number, seat_number)
+    success = update_seat(session_id, seat_id, venue_id, section, row_number, seat_number)
 
     if not success:
         return JsonResponse({
