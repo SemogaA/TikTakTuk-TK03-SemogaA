@@ -97,7 +97,8 @@
                 </a>
             </li>
             <li>
-                <a href="#" class="hover:text-blue-600 transition">
+                <a href="{% url 'order_list' %}" 
+                    class="transition {% if request.resolver_match.url_name == 'order_list' %}text-blue-600{% else %}hover:text-blue-600{% endif %}">
                     Order (Aset)
                 </a>
             </li>
@@ -157,7 +158,13 @@
                 Artis
                 </a>
             </li>
-            <li><a href="#" class="hover:text-blue-600 transition">Order (Aset)</a></li>
+            <li>
+                <a href="{% url 'order_list' %}" 
+                    class="transition {% if request.resolver_match.url_name == 'order_list' %}text-blue-600{% else %}hover:text-blue-600{% endif %}">
+                    Order (Aset)
+                </a>
+            </li> 
+            <!-- ini di fix nanti aja -->
 
             {% elif dashboard.role == 'customer' %}
             <li><a href="{% url 'my_tickets' %}" class="hover:text-blue-600 transition">Tiket Saya</a></li>
