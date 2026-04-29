@@ -15,12 +15,12 @@ urlpatterns = [
     path('event/', include('tiktaktuk.urls_event')),
     path('artist/', include('tiktaktuk.urls_artist')),
 
-
     path('order/', include('tiktaktuk.urls_order')),
-    
     path('promotion/', include('tiktaktuk.urls_promotion')),
 
     path('tickets/', include('tiktaktuk.urls_ticket')),
     path('seats/', include('tiktaktuk.urls_seat')),
     
+
+    path('category/', include('tiktaktuk.urls_ticket_category')),
 ]

@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 flex items-center justify-center px-4">
+    
+    <div class="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden z-50">
+        <div class="px-8 py-6 border-b border-slate-50 flex justify-between items-center">
+            <h2 class="text-xl font-black text-slate-800">
+                {% if category %}Edit Kategori{% else %}Tambah Kategori Baru{% endif %}
+            </h2>
+            <a href="{% url 'category_list' %}" class="text-slate-400 hover:text-slate-600 transition">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+            </a>
+        </div>
+
+        <form method="POST" class="p-8 space-y-6">
+            {% csrf_token %}
+            
+            {% if error %}
+            <div class="p-4 bg-rose-50 text-rose-600 text-xs font-bold rounded-2xl border border-rose-100 flex items-center gap-3">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
+                {{ error }}
+            </div>
+            {% endif %}
+
+            <div>
+                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Acara <span class="text-rose-500">*</span></label>
+                {% if category %}
+                    <input type="text" value="{{ category.event_title }}" disabled class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-2xl text-sm text-slate-500 font-semibold shadow-sm">
+                {% else %}
+                    <select name="tevent_id" required class="w-full px-4 py-3 border border-slate-200 rounded-2xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none appearance-none bg-no-repeat bg-[right_1rem_center]" style="background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23cbd5e1%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E'); background-size: 1.2em;">
+                        <option value="">Pilih Acara...</option>
+                        </select>
+                {% endif %}
+            </div>
+
+            <div>
+                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nama Kategori <span class="text-rose-500">*</span></label>
+                <input type="text" name="category_name" value="{{ category.category_name|default:'' }}" required
+                    class="w-full px-4 py-3 border border-slate-200 rounded-2xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                    placeholder="cth. WVIP">
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Harga (Rp) <span class="text-rose-500">*</span></label>
+                    <input type="number" name="price" value="{{ category.price|default:'' }}" required min="0"
+                        class="w-full px-4 py-3 border border-slate-200 rounded-2xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                        placeholder="750000">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Kuota <span class="text-rose-500">*</span></label>
+                    <input type="number" name="quota" value="{{ category.quota|default:'' }}" required min="1"
+                        class="w-full px-4 py-3 border border-slate-200 rounded-2xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                        placeholder="100">
+                </div>
+            </div>
+
+            <div class="flex gap-4 pt-4">
+                <a href="{% url 'category_list' %}" class="flex-1 py-3 text-center rounded-full border border-slate-200 text-slate-600 font-bold hover:bg-slate-50 transition text-sm">
+                    Batal
+                </a>
+                <button type="submit" class="flex-1 py-3 rounded-full bg-blue-600 text-white font-bold hover:bg-blue-700 shadow-xl shadow-blue-600/20 transition text-sm">
+                    {% if category %}Simpan{% else %}Tambah{% endif %}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
