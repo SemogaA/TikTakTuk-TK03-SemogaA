@@ -23,13 +23,18 @@
             Cari dan temukan tiket konser, festival, hingga seminar terbaik di TikTakTuk dengan proses yang instan dan aman.
         </p>
 
-        <div class="flex flex-col sm:flex-row gap-5 w-full sm:w-auto">
+        <div class="flex flex-col sm:flex-row gap-5 w-full sm:w-auto justify-center">
+            
+            {% if not dashboard.username and not username %}
             <a href="{% url 'register' %}" class="bg-blue-600 text-white font-bold px-10 py-4 rounded-2xl hover:bg-blue-500 transition shadow-[0_0_40px_-10px_rgba(37,99,235,0.6)] text-lg text-center">
                 Daftar Sekarang
             </a>
+            {% endif %}
+
             <a href="{% url 'promotion_list' %}" class="bg-white/10 text-white border border-white/20 backdrop-blur-sm font-bold px-10 py-4 rounded-2xl hover:bg-white/20 transition text-lg text-center shadow-lg">
                 Lihat Promo
             </a>
+            
         </div>
         
     </div>

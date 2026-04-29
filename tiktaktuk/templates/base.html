@@ -55,7 +55,12 @@
                 </a>
             </li>
             <li><a href="#" class="hover:text-blue-600 transition">Manajemen Kursi</a></li>
-            <li><a href="#" class="hover:text-blue-600 transition">Kategori Tiket</a></li>
+            <li>
+                <a href="{% url 'category_list' %}" 
+                class="transition {% if request.resolver_match.url_name == 'category_list' %}text-blue-600{% else %}hover:text-blue-600{% endif %}">
+                Kategori Tiket
+                </a>
+            </li>
             <li><a href="#" class="hover:text-blue-600 transition">Manajemen Tiket</a></li>
             <li>
                 <a href="{% url 'order_list' %}" 
@@ -67,6 +72,12 @@
                 <a href="{% url 'promotion_list' %}" 
                 class="transition {% if request.resolver_match.url_name == 'promotion_list' %}text-blue-600{% else %}hover:text-blue-600{% endif %}">
                 Promosi
+                </a>
+            </li>
+            <li>
+                <a href="{% url 'artist_list' %}" 
+                class="transition {% if request.resolver_match.url_name == 'artist_list' %}text-blue-600{% else %}hover:text-blue-600{% endif %}">
+                Manajemen Artist
                 </a>
             </li>
             <li><a href="#" class="hover:text-blue-600 transition">Tiket (Aset)</a></li>
@@ -86,8 +97,13 @@
                 </a>
             </li>
             <li><a href="#" class="hover:text-blue-600 transition">Manajemen Kursi</a></li>
-            <li><a href="#" class="hover:text-blue-600 transition">Kategori Tiket</a></li>
             <li><a href="#" class="hover:text-blue-600 transition">Manajemen Tiket</a></li>
+            <li>
+                <a href="{% url 'category_list' %}" 
+                class="transition {% if request.resolver_match.url_name == 'category_list' %}text-blue-600{% else %}hover:text-blue-600{% endif %}">
+                Kategori Tiket
+                </a>
+            </li>
             <li>
                 <a href="{% url 'order_list' %}" 
                 class="transition {% if request.resolver_match.url_name == 'order_list' %}text-blue-600{% else %}hover:text-blue-600{% endif %}">
@@ -98,6 +114,12 @@
                 <a href="{% url 'promotion_list' %}" 
                 class="transition {% if request.resolver_match.url_name == 'promotion_list' %}text-blue-600{% else %}hover:text-blue-600{% endif %}">
                 Promosi
+                </a>
+            </li>
+            <li>
+                <a href="{% url 'artist_list' %}" 
+                class="transition {% if request.resolver_match.url_name == 'artist_list' %}text-blue-600{% else %}hover:text-blue-600{% endif %}">
+                Artis
                 </a>
             </li>
             <li><a href="#" class="hover:text-blue-600 transition">Tiket (Aset)</a></li>
@@ -129,7 +151,12 @@
                    Venue
                 </a>
             </li>
-            <li><a href="#" class="hover:text-blue-600 transition">Artis</a></li>
+            <li>
+                <a href="{% url 'artist_list' %}" 
+                class="transition {% if request.resolver_match.url_name == 'artist_list' %}text-blue-600{% else %}hover:text-blue-600{% endif %}">
+                Artis
+                </a>
+            </li>
             {% endif %}
 
         </ul>
@@ -143,7 +170,7 @@
         </div>
         
         <div class="flex items-center gap-4 text-sm font-semibold">
-            <a href="#" class="text-slate-600 hover:text-blue-600 transition">Kategori Tiket</a> 
+            <a href="{% url 'category_list' %}" class="text-slate-600 hover:text-blue-600 transition">Kategori Tiket</a>
             <a href="{% url 'promotion_list' %}" class="text-slate-600 hover:text-blue-600 transition mr-2">Promosi</a>
             
             <div class="w-px h-4 bg-slate-300"></div>

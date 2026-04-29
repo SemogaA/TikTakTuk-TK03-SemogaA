@@ -141,17 +141,22 @@ def delete_ticket_category(session_id, category_id):
 
 def get_all_ticket_categories(tevent_id=None):
     """
-    note: bisa diakses Guest.
+    note: bisa diakses Guest. Ditambahkan JOIN ke EVENT untuk ambil judul.
     """
-    query = "SELECT category_id, category_name, quota, price, tevent_id FROM TICKET_CATEGORY"
+    # Gunakan alias 'tc' untuk TICKET_CATEGORY dan 'e' untuk EVENT
+    query = """
+        SELECT tc.category_id, tc.category_name, tc.quota, tc.price, tc.tevent_id, e.event_title 
+        FROM TICKET_CATEGORY tc
+        JOIN EVENT e ON tc.tevent_id = e.event_id
+    """
     params = []
 
     if tevent_id:
-        query += " WHERE tevent_id = %s"
+        query += " WHERE tc.tevent_id = %s"
         params.append(tevent_id)
 
-    # urutin dari harga paling murah
-    query += " ORDER BY price ASC;"
+    # Urutkan berdasarkan nama event, lalu nama kategori (sesuai skenario soal)
+    query += " ORDER BY e.event_title ASC, tc.category_name ASC;"
 
     with connection.cursor() as cursor:
         cursor.execute(query, params)
@@ -161,9 +166,10 @@ def get_all_ticket_categories(tevent_id=None):
 def get_ticket_category_by_id(category_id):
     with connection.cursor() as cursor:
         cursor.execute("""
-            SELECT category_id, category_name, quota, price, tevent_id 
-            FROM TICKET_CATEGORY 
-            WHERE category_id = %s;
+            SELECT tc.category_id, tc.category_name, tc.quota, tc.price, tc.tevent_id, e.event_title 
+            FROM TICKET_CATEGORY tc
+            JOIN EVENT e ON tc.tevent_id = e.event_id
+            WHERE tc.category_id = %s;
         """, [category_id])
         result = dictfetchall(cursor)
 

@@ -16,7 +16,9 @@ urlpatterns = [
     path('artist/', include('tiktaktuk.urls_artist')),
 
 
+
     path('order/', include('tiktaktuk.urls_order')),
-    
     path('promotion/', include('tiktaktuk.urls_promotion')),
+    path('category/', include('tiktaktuk.urls_ticket_category')),
+
 ]
