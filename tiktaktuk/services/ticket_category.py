@@ -58,14 +58,15 @@ def create_ticket_category(session_id, category_name, quota, price, tevent_id):
             if not check_organizer_ownership(cursor, user_id, tevent_id):
                 return None
 
-        # kuota ga boleh ngelewatin kapasitas venue
-        if not validate_venue_capacity(cursor, tevent_id, quota):
+       # 1. Tambahkan int() pada quota
+        if not validate_venue_capacity(cursor, tevent_id, int(quota)):
             print("Error: Penambahan kuota ini melebihi sisa kapasitas venue!")
             return None
 
+        # 2. Tambahkan ::INTEGER dan ::NUMERIC pada query SQL
         cursor.execute("""
             INSERT INTO TICKET_CATEGORY (category_name, quota, price, tevent_id)
-            VALUES (%s, %s, %s, %s)
+            VALUES (%s, %s::INTEGER, %s::NUMERIC, %s)
             RETURNING category_id;
         """, [category_name, quota, price, tevent_id])
 
@@ -94,13 +95,15 @@ def update_ticket_category(session_id, category_id, category_name, quota, price)
                 return False
 
         # validasi kapasitas
-        if not validate_venue_capacity(cursor, tevent_id, quota, exclude_category_id=category_id):
+        # 1. Tambahkan int() pada quota
+        if not validate_venue_capacity(cursor, tevent_id, int(quota), exclude_category_id=category_id):
             print("Error: Update kuota ini melebihi sisa kapasitas venue!")
             return False
 
+        # 2. Tambahkan ::INTEGER dan ::NUMERIC pada query SQL
         cursor.execute("""
             UPDATE TICKET_CATEGORY
-            SET category_name = %s, quota = %s, price = %s
+            SET category_name = %s, quota = %s::INTEGER, price = %s::NUMERIC
             WHERE category_id = %s;
         """, [category_name, quota, price, category_id])
 
