@@ -70,16 +70,15 @@ def create_order_view(request, event_id):
         'seat_ids':    seat_ids,
     }]
 
-    order_id = order_service.create_order(session_id, items, promo_code)
+    # Menangkap 2 nilai kembalian: is_success (Boolean) dan result (order_id jika sukses, teks error dari Trigger jika gagal)
+    is_success, result = order_service.create_order(session_id, items, promo_code)
 
-    if order_id:
+    if is_success:
         messages.success(request, 'Pesanan berhasil dibuat! Status: Pending.')
         return redirect('order_list')
     else:
-        messages.error(
-            request,
-            'Pesanan gagal dibuat. Periksa kembali ketersediaan tiket atau kode promo.'
-        )
+        # Jika is_success False, tampilkan pesan error dari Trigger PostgreSQL langsung ke UI
+        messages.error(request, result)
         return redirect('checkout', event_id=event_id)
 
 

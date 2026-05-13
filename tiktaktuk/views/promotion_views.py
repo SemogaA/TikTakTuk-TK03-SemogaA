@@ -29,15 +29,16 @@ def promotion_list_view(request):
         end_date = request.POST.get('end_date')
         usage_limit = request.POST.get('usage_limit')
 
-        new_id = promo_service.create_promotion(
+        # Menangkap is_success (Boolean) dan message (String pesan error/sukses dari DB)
+        is_success, message = promo_service.create_promotion(
             session_id, promo_code, discount_type, discount_value, 
             start_date, end_date, usage_limit
         )
 
-        if new_id:
-            messages.success(request, f'Promosi {promo_code} berhasil dibuat!')
+        if is_success:
+            messages.success(request, message)
         else:
-            messages.error(request, 'Gagal membuat promosi. Pastikan kode unik dan data valid.')
+            messages.error(request, message) 
         return redirect('promotion_list')
 
     # AMBIL PARAMETER SEARCH & FILTER
@@ -60,7 +61,7 @@ def promotion_list_view(request):
 def update_promotion_view(request, promotion_id):
     session_id = request.COOKIES.get('session_id')
     if request.method == 'POST':
-        ok = promo_service.update_promotion(
+        is_success, message = promo_service.update_promotion(
             session_id, promotion_id,
             request.POST.get('promo_code'),
             request.POST.get('discount_type'),
@@ -69,14 +70,21 @@ def update_promotion_view(request, promotion_id):
             request.POST.get('end_date'),
             request.POST.get('usage_limit')
         )
-        if ok: messages.success(request, 'Update promosi berhasil!')
-        else: messages.error(request, 'Gagal update promosi.')
+        if is_success: 
+            messages.success(request, message)
+        else: 
+            messages.error(request, message)
+            
     return redirect('promotion_list')
 
 def delete_promotion_view(request, promotion_id):
     session_id = request.COOKIES.get('session_id')
     if request.method == 'POST':
-        ok = promo_service.delete_promotion(session_id, promotion_id)
-        if ok: messages.success(request, 'Promosi berhasil dihapus.')
-        else: messages.error(request, 'Gagal menghapus. Promosi mungkin sudah digunakan di transaksi.')
+        is_success, message = promo_service.delete_promotion(session_id, promotion_id)
+        
+        if is_success: 
+            messages.success(request, message)
+        else: 
+            messages.error(request, message)
+            
     return redirect('promotion_list')

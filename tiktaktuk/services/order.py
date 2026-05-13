@@ -14,20 +14,20 @@ def create_order(session_id, items, promo_code=None):
         role = get_user_role_by_session(session_id)
 
         if not user_id or role != 'customer':
-            return None
+            return False, "Sesi tidak valid atau Anda bukan customer."
 
         cursor.execute(
             "SELECT customer_id FROM CUSTOMER WHERE user_id = %s;", [user_id])
         res = cursor.fetchone()
         if not res:
-            return None
+            return False, "Customer tidak ditemukan."
         customer_id = res[0]
 
         total_price = 0
 
         try:
             with transaction.atomic():
-                # validasi kuota dan kursi per item
+                # 1. validasi kuota dan kursi per item
                 for item in items:
                     cat_id = item['category_id']
                     qty = item['quantity']
@@ -37,7 +37,7 @@ def create_order(session_id, items, promo_code=None):
                         "SELECT quota, price, tevent_id FROM TICKET_CATEGORY WHERE category_id = %s;", [cat_id])
                     cat_data = cursor.fetchone()
                     if not cat_data:
-                        raise Exception("kategori tiket tidak ditemukan")
+                        raise Exception("Kategori tiket tidak ditemukan")
                     quota, price, event_id = cat_data
 
                     # cek tipe seating venue
@@ -49,8 +49,7 @@ def create_order(session_id, items, promo_code=None):
                     seating_type = cursor.fetchone()[0]
 
                     if seating_type == 'reserved' and len(seat_ids) != qty:
-                        raise Exception(
-                            "jumlah kursi yang dipilih harus sama dengan jumlah tiket untuk venue reserved seating!")
+                        raise Exception("Jumlah kursi yang dipilih harus sama dengan jumlah tiket untuk venue reserved seating!")
 
                     # cek ketersediaan kuota berjalan (abaikan yang dicancel)
                     cursor.execute("""
@@ -61,34 +60,28 @@ def create_order(session_id, items, promo_code=None):
                     sold_tickets = cursor.fetchone()[0]
 
                     if (sold_tickets + qty) > quota:
-                        raise Exception("sisa kuota tiket tidak mencukupi")
+                        raise Exception("Sisa kuota tiket tidak mencukupi")
 
                     total_price += float(price) * qty
 
-                # validasi & kalkulasi promo
+                # 2. Kalkulasi promo (HANYA MENGAMBIL DATA, VALIDASI DILAKUKAN OLEH TRIGGER POSTGRESQL NANTI)
                 discount = 0
                 promotion_id = None
 
                 if promo_code:
                     cursor.execute("""
-                        SELECT promotion_id, discount_type, discount_value, usage_limit 
+                        SELECT promotion_id, discount_type, discount_value 
                         FROM PROMOTION 
-                        WHERE promo_code = %s AND CURRENT_DATE BETWEEN start_date AND end_date;
+                        WHERE promo_code = %s;
                     """, [promo_code])
                     promo_data = cursor.fetchone()
 
                     if not promo_data:
-                        raise Exception(
-                            "kode promo tidak valid atau kadaluarsa")
-                    promo_id, d_type, d_value, usage_limit = promo_data
-
-                    # cek batas penggunaan promo global
-                    cursor.execute(
-                        "SELECT COUNT(*) FROM ORDER_PROMOTION WHERE promotion_id = %s;", [promo_id])
-                    if cursor.fetchone()[0] >= usage_limit:
-                        raise Exception("kode promo sudah habis terpakai")
-
+                        raise Exception("Kode promo tidak ditemukan.")
+                    
+                    promo_id, d_type, d_value = promo_data
                     promotion_id = promo_id
+
                     if d_type == 'NOMINAL':
                         discount = float(d_value)
                     elif d_type == 'PERCENTAGE':
@@ -96,21 +89,14 @@ def create_order(session_id, items, promo_code=None):
 
                 total_amount = max(0, total_price - discount)
 
-                # insert tabel order (default status pending)
+                # 3. insert tabel order (default status pending)
                 cursor.execute("""
                     INSERT INTO "ORDER" (payment_status, total_amount, customer_id)
                     VALUES ('Pending', %s, %s) RETURNING order_id;
                 """, [total_amount, customer_id])
                 order_id = cursor.fetchone()[0]
 
-                # insert relasi promo jika ada
-                if promotion_id:
-                    cursor.execute("""
-                        INSERT INTO ORDER_PROMOTION (promotion_id, order_id)
-                        VALUES (%s, %s);
-                    """, [promotion_id, order_id])
-
-                # generate tiket dan insert kursi
+                # 4. generate tiket dan insert kursi (HARUS DILAKUKAN SEBELUM PROMO AGAR TRIGGER BISA MENCARI TANGGAL EVENT)
                 for item in items:
                     cat_id = item['category_id']
                     qty = item['quantity']
@@ -132,10 +118,25 @@ def create_order(session_id, items, promo_code=None):
                                 VALUES (%s, %s);
                             """, [seat_ids[i], ticket_id])
 
-                return order_id
+                # 5. Insert relasi promo jika ada (INI AKAN MEMICU TRIGGER POSTGRESQL!)
+                if promotion_id:
+                    cursor.execute("""
+                        INSERT INTO ORDER_PROMOTION (order_promotion_id, promotion_id, order_id)
+                        VALUES (%s, %s, %s);
+                    """, [str(uuid.uuid4()), promotion_id, order_id])
+
+                return True, order_id
+                
         except Exception as e:
-            print(f"error order creation: {e}")
-            return None
+            # 6. Menangkap RAISE EXCEPTION dari PostgreSQL
+            error_message = str(e).split('\n')[0]
+            
+            # Menghapus prefix "ERROR:" bawaan Postgres agar rapi di UI
+            if "ERROR:" in error_message:
+                error_message = error_message.split("ERROR:")[1].strip()
+                
+            print(f"Error order creation: {error_message}")
+            return False, error_message
 
 
 def get_all_orders(session_id):

@@ -12,7 +12,7 @@ def create_promotion(session_id, promo_code, discount_type, discount_value, star
         role = get_user_role_by_session(session_id)
 
         if not user_id or role != 'administrator':
-            return None
+            return False, "Sesi tidak valid atau Anda bukan Admin."
 
         try:
             cursor.execute("""
@@ -20,10 +20,17 @@ def create_promotion(session_id, promo_code, discount_type, discount_value, star
                 VALUES (%s, %s, %s, %s, %s, %s) RETURNING promotion_id;
             """, [promo_code, discount_type, discount_value, start_date, end_date, usage_limit])
 
-            return cursor.fetchone()[0]
+            # Sukses
+            return True, "Promosi berhasil dibuat!"
+            
         except Exception as e:
-            print(f"error create promotion: {e}")
-            return None
+            # Menangkap RAISE EXCEPTION dari Trigger PostgreSQL
+            error_message = str(e).split('\n')[0]
+            if "ERROR:" in error_message:
+                error_message = error_message.split("ERROR:")[1].strip()
+            
+            print(f"error create promotion: {error_message}")
+            return False, error_message
 
 
 def update_promotion(session_id, promotion_id, promo_code, discount_type, discount_value, start_date, end_date, usage_limit):
@@ -35,7 +42,7 @@ def update_promotion(session_id, promotion_id, promo_code, discount_type, discou
         role = get_user_role_by_session(session_id)
 
         if not user_id or role != 'administrator':
-            return False
+            return False, "Sesi tidak valid atau Anda bukan Admin."
 
         try:
             cursor.execute("""
@@ -48,70 +55,49 @@ def update_promotion(session_id, promotion_id, promo_code, discount_type, discou
                     usage_limit = %s
                 WHERE promotion_id = %s;
             """, [promo_code, discount_type, discount_value, start_date, end_date, usage_limit, promotion_id])
-            return True
+            
+            return True, "Promosi berhasil diperbarui!"
+            
         except Exception as e:
-            print(f"error update promotion: {e}")
-            return False
+            # Menangkap RAISE EXCEPTION dari Trigger PostgreSQL
+            error_message = str(e).split('\n')[0]
+            if "ERROR:" in error_message:
+                error_message = error_message.split("ERROR:")[1].strip()
+                
+            print(f"error update promotion: {error_message}")
+            return False, error_message
 
 
 def delete_promotion(session_id, promotion_id):
     """
     note: hanya admin yang bisa hapus promosi. 
     akan gagal (restrict) jika promo sudah pernah dipakai di order_promotion.
-    TODO: kalau mau pake cascade, harus handle logic kayak refund dkk.
     """
     with connection.cursor() as cursor:
         user_id = validate_session(session_id)
         role = get_user_role_by_session(session_id)
 
         if not user_id or role != 'administrator':
-            return False
+            return False, "Sesi tidak valid atau Anda bukan Admin."
 
         try:
             cursor.execute(
                 "DELETE FROM PROMOTION WHERE promotion_id = %s;", [promotion_id])
-            return True
+            return True, "Promosi berhasil dihapus!"
+            
         except IntegrityError:
             # error karena constraint on delete restrict (promo udah kepake)
-            print("gagal hapus: promo sudah pernah digunakan oleh pengguna!")
-            return False
+            return False, "Gagal hapus: Promo sudah pernah digunakan oleh pengguna!"
+            
         except Exception as e:
-            print(f"error delete promotion: {e}")
-            return False
+            error_message = str(e).split('\n')[0]
+            if "ERROR:" in error_message:
+                error_message = error_message.split("ERROR:")[1].strip()
+                
+            print(f"error delete promotion: {error_message}")
+            return False, error_message
 
 
-# def get_all_promotions(session_id=None):
-#     """
-#     note: menampilkan list promo beserta rangkuman dashboard.
-#     bisa diakses semua pengguna (termasuk yang belum login, tapi data summary butuh logic terpisah jika diinginkan).
-#     """
-#     with connection.cursor() as cursor:
-#         # query summary (total promo, total pemakaian, dan tipe persentase)
-#         cursor.execute("""
-#             SELECT 
-#                 (SELECT COUNT(*) FROM PROMOTION) as total_promo,
-#                 (SELECT COUNT(*) FROM ORDER_PROMOTION) as total_penggunaan,
-#                 (SELECT COUNT(*) FROM PROMOTION WHERE discount_type = 'PERCENTAGE') as tipe_persentase;
-#         """)
-#         summary_result = dictfetchall(cursor)
-#         summary = summary_result[0] if summary_result else {}
-
-#         # query list promotion (diurutkan berdasarkan promo terbaru / start_date terdekat)
-#         cursor.execute("""
-#             SELECT 
-#                 promotion_id, promo_code, discount_type, discount_value, 
-#                 start_date, end_date, usage_limit 
-#             FROM PROMOTION
-#             ORDER BY start_date DESC;
-#         """)
-#         list_promotion = dictfetchall(cursor)
-
-#         return {
-#             "summary": summary,
-#             "list_promotion": list_promotion
-#         }
-
-# ganti ke yg bawah ini supaya guest bisa akses promotion
 def get_all_promotions(search='', discount_type=''):
     """
     Menampilkan list promo beserta rangkuman dashboard.
