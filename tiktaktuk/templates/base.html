@@ -181,6 +181,12 @@
                 </a>
             </li>
             <li>
+                <a href="{% url 'category_list' %}" 
+                   class="transition {% if request.resolver_match.url_name == 'category_list' %}text-blue-600{% else %}hover:text-blue-600{% endif %}">
+                   Kategori Tiket
+                </a>
+            </li>
+            <li>
                 <a href="{% url 'promotion_list' %}" 
                 class="transition {% if request.resolver_match.url_name == 'promotion_list' %}text-blue-600{% else %}hover:text-blue-600{% endif %}">
                 Promosi
