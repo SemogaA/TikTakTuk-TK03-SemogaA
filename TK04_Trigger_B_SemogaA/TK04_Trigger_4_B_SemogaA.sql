@@ -1,3 +1,5 @@
+-- trigger utk no 4, fitur biru
+
 -- 1. Membuat Stored Procedure untuk Fitur Biru
 CREATE OR REPLACE FUNCTION validasi_penggunaan_promosi()
 RETURNS TRIGGER AS $$

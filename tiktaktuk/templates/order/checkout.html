@@ -371,7 +371,7 @@ document.getElementById('btn-promo').addEventListener('click', async () => {
     msg.className    = 'text-xs mt-2 text-green-600';
   } else {
     appliedDiskon    = 0;
-    promoCodeApplied = '';
+    promoCodeApplied = code;
     msg.textContent  = data.message;
     msg.className    = 'text-xs mt-2 text-red-500';
   }

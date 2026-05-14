@@ -1,3 +1,4 @@
+# tiktaktuk/sevices/order.py
 from django.db import connection, transaction
 from .utils import dictfetchall
 from .user import validate_session, get_user_role_by_session
@@ -64,7 +65,30 @@ def create_order(session_id, items, promo_code=None):
 
                     total_price += float(price) * qty
 
-                # 2. Kalkulasi promo (HANYA MENGAMBIL DATA, VALIDASI DILAKUKAN OLEH TRIGGER POSTGRESQL NANTI)
+                # # 2. Kalkulasi promo (HANYA MENGAMBIL DATA, VALIDASI DILAKUKAN OLEH TRIGGER POSTGRESQL NANTI)
+                # discount = 0
+                # promotion_id = None
+
+                # if promo_code:
+                #     cursor.execute("""
+                #         SELECT promotion_id, discount_type, discount_value 
+                #         FROM PROMOTION 
+                #         WHERE promo_code = %s;
+                #     """, [promo_code])
+                #     promo_data = cursor.fetchone()
+
+                #     if not promo_data:
+                #         raise Exception("Kode promo tidak ditemukan.")
+                    
+                #     promo_id, d_type, d_value = promo_data
+                #     promotion_id = promo_id
+
+                #     if d_type == 'NOMINAL':
+                #         discount = float(d_value)
+                #     elif d_type == 'PERCENTAGE':
+                #         discount = total_price * (float(d_value) / 100.0)
+
+                # 2. Kalkulasi promo
                 discount = 0
                 promotion_id = None
 
@@ -72,20 +96,22 @@ def create_order(session_id, items, promo_code=None):
                     cursor.execute("""
                         SELECT promotion_id, discount_type, discount_value 
                         FROM PROMOTION 
-                        WHERE promo_code = %s;
+                        WHERE UPPER(promo_code) = UPPER(%s);
                     """, [promo_code])
                     promo_data = cursor.fetchone()
 
-                    if not promo_data:
-                        raise Exception("Kode promo tidak ditemukan.")
-                    
-                    promo_id, d_type, d_value = promo_data
-                    promotion_id = promo_id
+                    if promo_data:
+                        promo_id, d_type, d_value = promo_data
+                        promotion_id = promo_id # Ambil ID asli jika ada
 
-                    if d_type == 'NOMINAL':
-                        discount = float(d_value)
-                    elif d_type == 'PERCENTAGE':
-                        discount = total_price * (float(d_value) / 100.0)
+                        if d_type == 'NOMINAL':
+                            discount = float(d_value)
+                        elif d_type == 'PERCENTAGE':
+                            discount = total_price * (float(d_value) / 100.0)
+                    else:
+                        # Jika kode tidak ada di DB, kita buat promotion_id jadi UUID asal
+                        # Tujuannya: Agar saat INSERT ke ORDER_PROMOTION nanti, Trigger-mu terpancing
+                        promotion_id = str(uuid.uuid4())
 
                 total_amount = max(0, total_price - discount)
 
