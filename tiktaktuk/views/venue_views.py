@@ -1,4 +1,6 @@
 from django.shortcuts import render, redirect
+from django.db import DatabaseError
+from django.contrib import messages
 from tiktaktuk.services import venue as venue_service
 from tiktaktuk.services import user as user_service
 
@@ -61,12 +63,16 @@ def create_view(request):
         city = request.POST.get('city')
         seating_type = request.POST.get('seating_type')
 
-        venue_id = venue_service.create_venue(
-            session_id, venue_name, capacity, address, city, seating_type)
-        if venue_id:
-            return redirect('venue_list')
-        else:
-            return render(request, 'venue_form.html', {'error': 'gagal membuat venue. pastikan anda admin/organizer.'})
+        try:
+            venue_id = venue_service.create_venue(
+                session_id, venue_name, capacity, address, city, seating_type)
+            if venue_id:
+                return redirect('venue_list')
+            else:
+                return render(request, 'venue_form.html', {'error': 'gagal membuat venue. pastikan anda admin/organizer.'})
+        except DatabaseError as e:
+            error_msg = str(e).split('\n')[0]
+            return render(request, 'venue_form.html', {'error': error_msg})
 
     return render(request, 'venue_form.html')
 
@@ -86,13 +92,18 @@ def update_view(request, venue_id):
         city = request.POST.get('city')
         seating_type = request.POST.get('seating_type')
 
-        success = venue_service.update_venue(
-            session_id, venue_id, venue_name, capacity, address, city, seating_type)
-        if success:
-            return redirect('venue_list')
-        else:
+        try:
+            success = venue_service.update_venue(
+                session_id, venue_id, venue_name, capacity, address, city, seating_type)
+            if success:
+                return redirect('venue_list')
+            else:
+                venue = venue_service.get_venue_by_id(venue_id)
+                return render(request, 'venue_form.html', {'venue': venue, 'error': 'gagal update venue.'})
+        except DatabaseError as e:
+            error_msg = str(e).split('\n')[0]
             venue = venue_service.get_venue_by_id(venue_id)
-            return render(request, 'venue_form.html', {'venue': venue, 'error': 'gagal update venue.'})
+            return render(request, 'venue_form.html', {'venue': venue, 'error': error_msg})
 
     venue = venue_service.get_venue_by_id(venue_id)
     return render(request, 'venue_form.html', {'venue': venue})
@@ -107,6 +118,10 @@ def delete_view(request, venue_id):
         return redirect('login')
 
     if request.method == 'POST':
-        venue_service.delete_venue(session_id, venue_id)
+        try:
+            venue_service.delete_venue(session_id, venue_id)
+        except DatabaseError as e:
+            error_msg = str(e).split('\n')[0]
+            messages.error(request, error_msg)
 
     return redirect('venue_list')

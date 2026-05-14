@@ -103,7 +103,7 @@ def create_ticket(session_id, tcategory_id, torder_id, seat_id=None):
 
                 return ticket_id, None
         except DatabaseError as e:
-            return None, str(e)
+            return None, str(e).split('\n')[0]
         except Exception as e:
             return None, str(e)
 

@@ -11,14 +11,18 @@ def create_venue(session_id, venue_name, capacity, address, city, seating_type):
         if not user_id or role not in ['administrator', 'organizer']:
             return None
 
-        cursor.execute("""
-            INSERT INTO VENUE (venue_name, capacity, address, city, seating_type)
-            VALUES (%s, %s, %s, %s, %s) RETURNING venue_id;
-        """, [venue_name, capacity, address, city, seating_type])
+        # --- DIBUNGKUS TRY-EXCEPT DAN RAISE ---
+        try:
+            cursor.execute("""
+                INSERT INTO VENUE (venue_name, capacity, address, city, seating_type)
+                VALUES (%s, %s, %s, %s, %s) RETURNING venue_id;
+            """, [venue_name, capacity, address, city, seating_type])
 
-        venue_id = cursor.fetchone()[0]
-        connection.commit()
-        return venue_id
+            venue_id = cursor.fetchone()[0]
+            connection.commit()
+            return venue_id
+        except Exception as e:
+            raise e
 
 
 def update_venue(session_id, venue_id, venue_name, capacity, address, city, seating_type):
@@ -29,14 +33,18 @@ def update_venue(session_id, venue_id, venue_name, capacity, address, city, seat
         if not user_id or role not in ['administrator', 'organizer']:
             return False
 
-        cursor.execute("""
-            UPDATE VENUE
-            SET venue_name=%s, capacity=%s, address=%s, city=%s, seating_type=%s
-            WHERE venue_id=%s;
-        """, [venue_name, capacity, address, city, seating_type, venue_id])
+        # --- DIBUNGKUS TRY-EXCEPT DAN RAISE ---
+        try:
+            cursor.execute("""
+                UPDATE VENUE
+                SET venue_name=%s, capacity=%s, address=%s, city=%s, seating_type=%s
+                WHERE venue_id=%s;
+            """, [venue_name, capacity, address, city, seating_type, venue_id])
 
-        connection.commit()
-    return True
+            connection.commit()
+            return True
+        except Exception as e:
+            raise e
 
 
 def delete_venue(session_id, venue_id):
@@ -47,14 +55,15 @@ def delete_venue(session_id, venue_id):
         if not user_id or role not in ['administrator', 'organizer']:
             return False
 
+        # --- UBAH INTEGRITYERROR MENJADI RAISE ---
         try:
             cursor.execute(
                 "DELETE FROM VENUE WHERE venue_id = %s;", [venue_id])
             connection.commit()
 
             return True
-        except IntegrityError:
-            return False
+        except Exception as e:
+            raise e
 
 
 def get_all_venues(search_query=None, city=None, seating_type=None):
