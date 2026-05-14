@@ -69,12 +69,12 @@ def create_view(request):
             if venue_id:
                 return redirect('venue_list')
             else:
-                return render(request, 'venue_form.html', {'error': 'gagal membuat venue. pastikan anda admin/organizer.'})
+                return render(request, 'venue_list.html', {'error': 'gagal membuat venue. pastikan anda admin/organizer.'})
         except DatabaseError as e:
             error_msg = str(e).split('\n')[0]
-            return render(request, 'venue_form.html', {'error': error_msg})
+            return render(request, 'venue_list.html', {'error': error_msg})
 
-    return render(request, 'venue_form.html')
+    return render(request, 'venue_list.html')
 
 
 def update_view(request, venue_id):
@@ -99,14 +99,14 @@ def update_view(request, venue_id):
                 return redirect('venue_list')
             else:
                 venue = venue_service.get_venue_by_id(venue_id)
-                return render(request, 'venue_form.html', {'venue': venue, 'error': 'gagal update venue.'})
+                return render(request, 'venue_list.html', {'venue': venue, 'error': 'gagal update venue.'})
         except DatabaseError as e:
             error_msg = str(e).split('\n')[0]
             venue = venue_service.get_venue_by_id(venue_id)
-            return render(request, 'venue_form.html', {'venue': venue, 'error': error_msg})
+            return render(request, 'venue_list.html', {'venue': venue, 'error': error_msg})
 
     venue = venue_service.get_venue_by_id(venue_id)
-    return render(request, 'venue_form.html', {'venue': venue})
+    return render(request, 'venue_list.html', {'venue': venue})
 
 
 def delete_view(request, venue_id):
