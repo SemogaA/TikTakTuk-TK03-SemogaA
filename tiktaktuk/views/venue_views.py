@@ -67,14 +67,15 @@ def create_view(request):
             venue_id = venue_service.create_venue(
                 session_id, venue_name, capacity, address, city, seating_type)
             if venue_id:
-                return redirect('venue_list')
+                messages.success(request, 'Venue berhasil dibuat.')
             else:
-                return render(request, 'venue_list.html', {'error': 'gagal membuat venue. pastikan anda admin/organizer.'})
+                messages.error(
+                    request, 'Gagal membuat venue. Pastikan Anda admin/organizer.')
         except DatabaseError as e:
             error_msg = str(e).split('\n')[0]
-            return render(request, 'venue_list.html', {'error': error_msg})
+            messages.error(request, error_msg)
 
-    return render(request, 'venue_list.html')
+    return redirect('venue_list')
 
 
 def update_view(request, venue_id):
@@ -96,17 +97,14 @@ def update_view(request, venue_id):
             success = venue_service.update_venue(
                 session_id, venue_id, venue_name, capacity, address, city, seating_type)
             if success:
-                return redirect('venue_list')
+                messages.success(request, 'Venue berhasil diupdate.')
             else:
-                venue = venue_service.get_venue_by_id(venue_id)
-                return render(request, 'venue_list.html', {'venue': venue, 'error': 'gagal update venue.'})
+                messages.error(request, 'Gagal update venue.')
         except DatabaseError as e:
             error_msg = str(e).split('\n')[0]
-            venue = venue_service.get_venue_by_id(venue_id)
-            return render(request, 'venue_list.html', {'venue': venue, 'error': error_msg})
+            messages.error(request, error_msg)
 
-    venue = venue_service.get_venue_by_id(venue_id)
-    return render(request, 'venue_list.html', {'venue': venue})
+    return redirect('venue_list')
 
 
 def delete_view(request, venue_id):
@@ -120,6 +118,7 @@ def delete_view(request, venue_id):
     if request.method == 'POST':
         try:
             venue_service.delete_venue(session_id, venue_id)
+            messages.success(request, 'Venue berhasil dihapus.')
         except DatabaseError as e:
             error_msg = str(e).split('\n')[0]
             messages.error(request, error_msg)
