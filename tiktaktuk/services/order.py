@@ -390,7 +390,7 @@ def validate_promo_only(promo_code, total_price):
     Trigger PostgreSQL bisa mengambil alih saat tombol 'Bayar Sekarang' ditekan.
     """
     with connection.cursor() as cursor:
-        # Kita hapus filter 'BETWEEN start_date AND end_date' agar Python meloloskan promo expired
+        # hapus filter 'BETWEEN start_date AND end_date' agar Python meloloskan promo expired
         cursor.execute("""
             SELECT promotion_id, promo_code, discount_type, discount_value 
             FROM PROMOTION
