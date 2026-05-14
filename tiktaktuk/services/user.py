@@ -2,7 +2,6 @@ from django.db import connection, transaction
 from datetime import datetime, timedelta
 from .utils import dictfetchall
 import bcrypt
-import re
 
 
 def register_user_atomic(username, email, password, role_name, profile_data):
@@ -49,7 +48,7 @@ def register_user_atomic(username, email, password, role_name, profile_data):
                 return user_id
     except Exception as e:
         print(f"Error during registration: {e}")
-        return None
+        raise e
 
 
 def login_user(identifier, password):
@@ -361,10 +360,6 @@ def validate_session(session_id):
         result = cursor.fetchone()
     return result[0] if result else None
 
-# ==============================================================
-# FUNGSI PROFILE BARU (READ & UPDATE)
-# ==============================================================
-
 
 def get_profile_data(session_id):
     """Mengambil data profil lengkap berdasarkan role tunggal user."""
@@ -443,7 +438,7 @@ def update_profile_info(session_id, data):
 
         except Exception as e:
             connection.rollback()
-            return False, f"Gagal update profil: Email mungkin sudah digunakan."
+            raise e
 
 
 def change_user_password(session_id, old_password, new_password):
@@ -476,4 +471,4 @@ def change_user_password(session_id, old_password, new_password):
             return True, "Password berhasil diubah!"
         except Exception as e:
             connection.rollback()
-            return False, "Terjadi kesalahan saat mengubah password."
+            raise e

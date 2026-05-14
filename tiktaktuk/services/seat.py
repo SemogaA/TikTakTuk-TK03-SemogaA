@@ -80,8 +80,9 @@ def delete_seat(session_id, seat_id):
         try:
             cursor.execute("DELETE FROM SEAT WHERE seat_id = %s;", [seat_id])
             return True
+
         except DatabaseError as e:
-            return str(e)
+            return str(e).split('\n')[0]
 
 
 def get_event_seats(session_id, event_id):

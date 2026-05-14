@@ -1,5 +1,6 @@
 from django.shortcuts import render, redirect
 from django.http import HttpResponse, JsonResponse
+from django.db import DatabaseError
 from tiktaktuk.services import user as user_service
 import re
 
@@ -78,12 +79,6 @@ def register_view(request):
                 return JsonResponse({'error': msg}, status=400)
             return render(request, 'auth/register.html', {'error': msg})
 
-        if not re.match(r'^[a-zA-Z0-9]+$', username):
-            msg = 'Username hanya boleh berisi huruf dan angka (tanpa spasi)!'
-            if is_ajax:
-                return JsonResponse({'error': msg}, status=400)
-            return render(request, 'auth/register.html', {'error': msg})
-
         phone_number = request.POST.get('phone_number')
 
         if role_name == 'customer' and phone_number:
@@ -103,15 +98,16 @@ def register_view(request):
             # asumsinya tabel ADMIN hanya menyimpan Nama, atau menggunakan skema dasar user
             profile_data['full_name'] = request.POST.get('full_name')
 
-        user_id = user_service.register_user_atomic(
-            username, email, password, role_name, profile_data)
+        try:
+            user_id = user_service.register_user_atomic(
+                username, email, password, role_name, profile_data)
 
-        if user_id:
             if is_ajax:
                 return JsonResponse({'success': True, 'redirect_url': '/login/'})
             return redirect('login')
-        else:
-            msg = 'Registrasi gagal. Username / email sudah digunakan.'
+
+        except DatabaseError as e:
+            msg = str(e).split('\n')[0]
             if is_ajax:
                 return JsonResponse({'error': msg}, status=400)
             return render(request, 'auth/register.html', {'error': msg})
@@ -187,8 +183,12 @@ def profile_view(request):
                 'organizer_name': request.POST.get('organizer_name'),
                 'contact_email': request.POST.get('contact_email'),
             }
-            is_success, message = user_service.update_profile_info(
-                session_id, update_data)
+            try:
+                is_success, message = user_service.update_profile_info(
+                    session_id, update_data)
+            except DatabaseError as e:
+                is_success = False
+                message = str(e).split('\n')[0]
 
         # buat update password
         elif 'update_password' in request.POST:
@@ -202,8 +202,12 @@ def profile_view(request):
             elif len(new_password) < 6:
                 is_success, message = False, "Password baru minimal harus 6 karakter."
             else:
-                is_success, message = user_service.change_user_password(
-                    session_id, old_password, new_password)
+                try:
+                    is_success, message = user_service.change_user_password(
+                        session_id, old_password, new_password)
+                except DatabaseError as e:
+                    is_success = False
+                    message = str(e).split('\n')[0]
 
         # tarik ulang data terbaru untuk di-render kembali ke form
         profile_data = user_service.get_profile_data(session_id)
