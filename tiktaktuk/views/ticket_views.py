@@ -205,16 +205,16 @@ def create_ticket(request):
 
         print("SEAT ID DIPILIH:", seat_id)
 
-        result = ticket_service.create_ticket(
+        ticket_id, error_message = ticket_service.create_ticket(
             session_id=session_id,
             tcategory_id=category_id,
             torder_id=order_id,
             seat_id=seat_id,
         )
-        if result:
+        if ticket_id:
             messages.success(request, 'Tiket berhasil dibuat.')
         else:
-            messages.error(request, 'Gagal membuat tiket. Periksa data yang dimasukkan.')
+            messages.error(request, error_message or 'Gagal membuat tiket. Periksa data yang dimasukkan.')
 
     return redirect('my_tickets')
 

@@ -1,4 +1,4 @@
-from django.db import connection, IntegrityError
+from django.db import connection, IntegrityError, DatabaseError
 from .utils import dictfetchall
 from .user import validate_session, get_user_role_by_session
 
@@ -80,10 +80,8 @@ def delete_seat(session_id, seat_id):
         try:
             cursor.execute("DELETE FROM SEAT WHERE seat_id = %s;", [seat_id])
             return True
-        except IntegrityError:
-            print(
-                "gagal hapus: kursi ini sudah pernah dipesan (terdapat di histori has_relationship)!")
-            return False
+        except DatabaseError as e:
+            return str(e)
 
 
 def get_event_seats(session_id, event_id):
