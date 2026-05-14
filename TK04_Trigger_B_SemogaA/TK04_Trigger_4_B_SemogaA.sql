@@ -53,6 +53,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- 2. Membuat Trigger yang akan dipanggil sebelum data masuk ke ORDER_PROMOTION
+DROP TRIGGER IF EXISTS trigger_cek_promosi_order ON ORDER_PROMOTION;
 CREATE TRIGGER trigger_cek_promosi_order
 BEFORE INSERT ON ORDER_PROMOTION
 FOR EACH ROW

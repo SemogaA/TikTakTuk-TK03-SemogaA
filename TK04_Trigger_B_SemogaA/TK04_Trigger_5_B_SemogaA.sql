@@ -28,6 +28,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trigger_cek_seat_delete ON SEAT;
 CREATE TRIGGER trigger_cek_seat_delete
 BEFORE DELETE ON SEAT
 FOR EACH ROW
@@ -61,6 +62,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trigger_cek_quota_ticket ON TICKET;
 CREATE TRIGGER trigger_cek_quota_ticket
 BEFORE INSERT ON TICKET
 FOR EACH ROW

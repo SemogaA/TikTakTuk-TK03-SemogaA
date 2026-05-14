@@ -28,6 +28,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trigger_cek_duplikasi_artist_event ON EVENT_ARTIST;
 CREATE TRIGGER trigger_cek_duplikasi_artist_event
 BEFORE INSERT ON EVENT_ARTIST
 FOR EACH ROW
