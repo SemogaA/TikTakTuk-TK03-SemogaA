@@ -208,21 +208,18 @@ def api_delete_seat(request, seat_id):
 
     session_id = request.COOKIES.get("session_id")
 
-    if _is_seat_assigned(seat_id):
-        return JsonResponse({
-            "success": False,
-            "message": "Kursi ini sudah di-assign ke tiket dan tidak dapat dihapus. Hapus atau ubah tiket terlebih dahulu."
-        }, status=400)
+    result = delete_seat(session_id, seat_id)
 
-    success = delete_seat(session_id, seat_id)
+    if result is True:
+        return JsonResponse({"success": True, "message": "Kursi berhasil dihapus."})
 
-    if not success:
-        return JsonResponse({
-            "success": False,
-            "message": "Gagal menghapus kursi. Pastikan Anda memiliki akses."
-        }, status=400)
+    if isinstance(result, str):
+        return JsonResponse({"success": False, "message": result}, status=400)
 
-    return JsonResponse({"success": True, "message": "Kursi berhasil dihapus."})
+    return JsonResponse({
+        "success": False,
+        "message": "Gagal menghapus kursi. Pastikan Anda memiliki akses."
+    }, status=400)
 
 
 def api_get_seat(request, seat_id):

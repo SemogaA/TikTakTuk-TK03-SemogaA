@@ -1,4 +1,4 @@
-from django.db import connection, transaction
+from django.db import connection, transaction, DatabaseError
 from .utils import dictfetchall
 from .user import validate_session, get_user_role_by_session
 import uuid
@@ -39,7 +39,7 @@ def create_ticket(session_id, tcategory_id, torder_id, seat_id=None):
         role = get_user_role_by_session(session_id)
 
         if not user_id or (role != 'administrator' and role != 'organizer'):
-            return None
+            return None, 'Anda tidak memiliki akses.'
 
         # ambil data event & tipe venue dari kategori tiket
         cursor.execute("""
@@ -52,7 +52,7 @@ def create_ticket(session_id, tcategory_id, torder_id, seat_id=None):
         ev_data = cursor.fetchone()
 
         if not ev_data:
-            return None
+            return None, 'Kategori tiket tidak ditemukan.'
         event_id, event_org_id, seating_type = ev_data
 
         cursor.execute("""
@@ -63,8 +63,7 @@ def create_ticket(session_id, tcategory_id, torder_id, seat_id=None):
         """, [torder_id])
         order_event_ids = {row[0] for row in cursor.fetchall()}
         if event_id not in order_event_ids:
-            print("error: kategori tiket tidak sesuai dengan event dari order!")
-            return None
+            return None, 'Kategori tiket tidak sesuai dengan event dari order.'
 
         # validasi kepemilikan organizer
         if role == 'organizer':
@@ -72,36 +71,16 @@ def create_ticket(session_id, tcategory_id, torder_id, seat_id=None):
                 "SELECT organizer_id FROM ORGANIZER WHERE user_id = %s;", [user_id])
             org_res = cursor.fetchone()
             if not org_res or org_res[0] != event_org_id:
-                return None
-
-        cursor.execute("""
-            SELECT tc.quota,
-                   COALESCE((
-                       SELECT COUNT(*)
-                       FROM TICKET t
-                       JOIN "ORDER" o ON t.torder_id = o.order_id
-                       WHERE t.tcategory_id = tc.category_id
-                         AND o.payment_status != 'Cancelled'
-                   ), 0) AS used
-            FROM TICKET_CATEGORY tc
-            WHERE tc.category_id = %s;
-        """, [tcategory_id])
-        quota_res = cursor.fetchone()
-        if not quota_res or quota_res[1] >= quota_res[0]:
-            print("error: kuota kategori tiket sudah penuh!")
-            return None
+                return None, 'Anda tidak berwenang membuat tiket untuk event ini.'
 
         # validasi rule kursi
         if seating_type == 'reserved':
             if not seat_id:
-                print("error: venue reserved seating wajib mengisi seat_id!")
-                return None
+                return None, 'Venue reserved seating wajib mengisi seat_id.'
             if not check_seat_belongs_to_event(cursor, seat_id, event_id):
-                print("error: kursi tidak sesuai dengan venue event!")
-                return None
+                return None, 'Kursi tidak sesuai dengan venue event.'
             if not check_seat_availability(cursor, seat_id, event_id):
-                print("error: kursi sudah terisi oleh orang lain!")
-                return None
+                return None, 'Kursi sudah terisi oleh orang lain.'
         else:
             # venue free seating, abaikan seat_id walaupun dikirim dari frontend
             seat_id = None
@@ -122,10 +101,11 @@ def create_ticket(session_id, tcategory_id, torder_id, seat_id=None):
                         VALUES (%s, %s);
                     """, [seat_id, ticket_id])
 
-                return ticket_id
+                return ticket_id, None
+        except DatabaseError as e:
+            return None, str(e)
         except Exception as e:
-            print(f"error create ticket: {e}")
-            return None
+            return None, str(e)
 
 
 def get_all_tickets(session_id):
