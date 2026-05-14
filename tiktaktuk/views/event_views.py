@@ -76,6 +76,7 @@ def create_view(request):
             session_id, event_title, event_datetime, venue_id, description, image_url, artists, ticket_categories
         )
 
+        # trigger POSTGRESQL error akan muncul di sini via messages.error
         if is_success:
             messages.success(request, message)
         else:
@@ -117,6 +118,7 @@ def update_view(request, event_id):
             session_id, event_id, event_title, event_datetime, venue_id, description, image_url, artists, ticket_categories
         )
 
+        # trigger POSTGRESQL error akan muncul di sini via messages.error
         if is_success:
             messages.success(request, message)
         else:

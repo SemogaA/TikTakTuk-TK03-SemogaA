@@ -3,7 +3,6 @@ from django.db import IntegrityError, connection, transaction
 from .utils import dictfetchall
 from .user import validate_session, get_user_role_by_session
 
-
 def create_event(session_id, event_title, event_datetime, venue_id, description, image_url, artists, ticket_categories, organizer_id=None):
     with connection.cursor() as cursor:
         user_id = validate_session(session_id)
@@ -65,8 +64,9 @@ def create_event(session_id, event_title, event_datetime, venue_id, description,
 
                 return True, f"Event '{event_title}' berhasil dibuat!", event_id
         except Exception as e:
-            return False, f"Terjadi kesalahan pada database: {str(e)}", None
-
+            # catch error dari trigger POSTGRESQL
+            error_msg = str(e).split('\n')[0]
+            return False, error_msg, None
 
 def update_event(session_id, event_id, event_title, event_datetime, venue_id, description, image_url, artists=None, ticket_categories=None):
     with connection.cursor() as cursor:
@@ -120,8 +120,9 @@ def update_event(session_id, event_id, event_title, event_datetime, venue_id, de
 
                 return True, "Perubahan event berhasil disimpan!"
         except Exception as e:
-            return False, f"Terjadi kesalahan saat menyimpan perubahan: {str(e)}"
-
+            # catch error dari trigger POSTGRESQL
+            error_msg = str(e).split('\n')[0]
+            return False, error_msg
 
 def get_events(search_query=None, venue_id=None, artist_id=None, status='upcoming'):
     query = """
@@ -194,7 +195,6 @@ def get_events(search_query=None, venue_id=None, artist_id=None, status='upcomin
                             {'name': parts[0], 'price': parts[1], 'quota': parts[2]})
 
         return events
-
 
 def get_event_by_id(event_id):
     with connection.cursor() as cursor:

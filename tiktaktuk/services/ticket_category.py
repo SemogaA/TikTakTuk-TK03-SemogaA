@@ -58,15 +58,14 @@ def create_ticket_category(session_id, category_name, quota, price, tevent_id):
             if not check_organizer_ownership(cursor, user_id, tevent_id):
                 return None
 
-       # 1. Tambahkan int() pada quota
-        if not validate_venue_capacity(cursor, tevent_id, int(quota)):
+        # kuota ga boleh ngelewatin kapasitas venue
+        if not validate_venue_capacity(cursor, tevent_id, quota):
             print("Error: Penambahan kuota ini melebihi sisa kapasitas venue!")
             return None
 
-        # 2. Tambahkan ::INTEGER dan ::NUMERIC pada query SQL
         cursor.execute("""
             INSERT INTO TICKET_CATEGORY (category_name, quota, price, tevent_id)
-            VALUES (%s, %s::INTEGER, %s::NUMERIC, %s)
+            VALUES (%s, %s, %s, %s)
             RETURNING category_id;
         """, [category_name, quota, price, tevent_id])
 
@@ -95,15 +94,13 @@ def update_ticket_category(session_id, category_id, category_name, quota, price)
                 return False
 
         # validasi kapasitas
-        # 1. Tambahkan int() pada quota
-        if not validate_venue_capacity(cursor, tevent_id, int(quota), exclude_category_id=category_id):
+        if not validate_venue_capacity(cursor, tevent_id, quota, exclude_category_id=category_id):
             print("Error: Update kuota ini melebihi sisa kapasitas venue!")
             return False
 
-        # 2. Tambahkan ::INTEGER dan ::NUMERIC pada query SQL
         cursor.execute("""
             UPDATE TICKET_CATEGORY
-            SET category_name = %s, quota = %s::INTEGER, price = %s::NUMERIC
+            SET category_name = %s, quota = %s, price = %s
             WHERE category_id = %s;
         """, [category_name, quota, price, category_id])
 
@@ -134,9 +131,6 @@ def delete_ticket_category(session_id, category_id):
                 "DELETE FROM TICKET_CATEGORY WHERE category_id = %s;", [category_id])
             return True
         except IntegrityError:
-            # bakal ke-trigger karena relasi TICKET ke TICKET_CATEGORY pake ON DELETE RESTRICT
-            # ini dibikin supaya gabisa hapus kategori yg tiketnya udah dibeli orang.
-            # TODO: kalau mau pake CASCADE, harus handle logic kayak refund dkk.
             print(
                 "Gagal hapus: Sudah ada tiket yang diterbitkan/dibeli untuk kategori ini!")
             return False
@@ -144,13 +138,13 @@ def delete_ticket_category(session_id, category_id):
 
 def get_all_ticket_categories(tevent_id=None):
     """
-    note: bisa diakses Guest. Ditambahkan JOIN ke EVENT untuk ambil judul.
+    ngambil kategori beserta sisa kuota dengan memanggil stored procedure SQL
     """
-    # Gunakan alias 'tc' untuk TICKET_CATEGORY dan 'e' untuk EVENT
     query = """
-        SELECT tc.category_id, tc.category_name, tc.quota, tc.price, tc.tevent_id, e.event_title 
+        SELECT tc.category_id, tc.category_name, tc.quota, tc.price, tc.tevent_id, e.event_title, f.sisa_kuota
         FROM TICKET_CATEGORY tc
         JOIN EVENT e ON tc.tevent_id = e.event_id
+        JOIN LATERAL get_sisa_kuota_kategori(tc.tevent_id) f ON f.category_id = tc.category_id
     """
     params = []
 
@@ -158,7 +152,6 @@ def get_all_ticket_categories(tevent_id=None):
         query += " WHERE tc.tevent_id = %s"
         params.append(tevent_id)
 
-    # Urutkan berdasarkan nama event, lalu nama kategori (sesuai skenario soal)
     query += " ORDER BY e.event_title ASC, tc.category_name ASC;"
 
     with connection.cursor() as cursor:
