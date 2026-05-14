@@ -385,31 +385,23 @@ def get_checkout_data(event_id):
 
 def validate_promo_only(promo_code, total_price):
     """
-    Validasi kode promo dan hitung diskon tanpa membuat order.
-    Dipakai endpoint AJAX di view.
-    Return: (diskon_amount, promo_data, error_msg)
+    Validasi kode promo sederhana untuk AJAX.
+    Validasi limit dan tanggal sengaja dihapus di sini agar 
+    Trigger PostgreSQL bisa mengambil alih saat tombol 'Bayar Sekarang' ditekan.
     """
     with connection.cursor() as cursor:
+        # Kita hapus filter 'BETWEEN start_date AND end_date' agar Python meloloskan promo expired
         cursor.execute("""
-            SELECT promotion_id, promo_code, discount_type, discount_value, usage_limit
+            SELECT promotion_id, promo_code, discount_type, discount_value 
             FROM PROMOTION
-            WHERE UPPER(promo_code) = UPPER(%s)
-              AND CURRENT_DATE BETWEEN start_date AND end_date;
+            WHERE UPPER(promo_code) = UPPER(%s);
         """, [promo_code])
         row = cursor.fetchone()
 
         if not row:
-            return 0, None, 'Kode promo tidak ditemukan atau sudah kadaluarsa.'
+            return 0, None, 'Kode promo tidak ditemukan.'
 
-        promo_id, code, d_type, d_value, usage_limit = row
-
-        cursor.execute(
-            "SELECT COUNT(*) FROM ORDER_PROMOTION WHERE promotion_id = %s;",
-            [promo_id]
-        )
-        used = cursor.fetchone()[0]
-        if used >= usage_limit:
-            return 0, None, 'Batas penggunaan promo sudah habis.'
+        promo_id, code, d_type, d_value = row
 
         d_value = float(d_value)
         if d_type == 'NOMINAL':
