@@ -4,7 +4,7 @@ BEGIN
     -- mencegah Username dengan special char (hanya boleh a-z, A-Z, 0-9)
     -- operator '!~' berarti tidak sesuai dengan regex
     IF NEW.username !~ '^[a-zA-Z0-9]+$' THEN
-        RAISE EXCEPTION 'Error: Username "%" hanya boleh mengandung huruf dan angka tanpa simbol atau spasi.', NEW.username;
+        RAISE EXCEPTION 'ERROR: Username "%" hanya boleh mengandung huruf dan angka tanpa simbol atau spasi.', NEW.username;
     END IF;
 
     -- cek username uniqueness secara case-insensitive
@@ -14,7 +14,7 @@ BEGIN
             SELECT 1 FROM USER_ACCOUNT
             WHERE LOWER(username) = LOWER(NEW.username)
         ) THEN
-            RAISE EXCEPTION 'Error: Username "%" sudah terdaftar, gunakan username lain.', NEW.username;
+            RAISE EXCEPTION 'ERROR: Username "%" sudah terdaftar, gunakan username lain.', NEW.username;
         END IF;
     END IF;
 

@@ -18,7 +18,7 @@ BEGIN
         WHERE seat_id = OLD.seat_id;
 
         RAISE EXCEPTION
-        'Kursi % - Baris % No. % tidak dapat dihapus karena sudah terisi.',
+        'ERROR: Kursi % - Baris % No. % tidak dapat dihapus karena sudah terisi.',
         v_section,
         v_row,
         v_seat_number;
@@ -53,7 +53,7 @@ BEGIN
 
     IF v_total_ticket >= v_quota THEN
         RAISE EXCEPTION
-        'Kuota kategori tiket "%" sudah penuh. Tidak dapat membuat tiket baru.',
+        'ERROR: Kuota kategori tiket "%" sudah penuh. Tidak dapat membuat tiket baru.',
         v_category_name;
     END IF;
 

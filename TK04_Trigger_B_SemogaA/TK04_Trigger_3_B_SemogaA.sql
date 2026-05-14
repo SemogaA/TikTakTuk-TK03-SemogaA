@@ -7,12 +7,12 @@ DECLARE
 BEGIN
     -- Validasi 1: Cek apakah Artist terdaftar (mencegah error foreign key bawaan)
     IF NOT EXISTS(SELECT 1 FROM ARTIST WHERE artist_id = NEW.artist_id) THEN
-        RAISE EXCEPTION 'Artist dengan ID % tidak ditemukan.', NEW.artist_id;
+        RAISE EXCEPTION 'ERROR: Artist dengan ID % tidak ditemukan.', NEW.artist_id;
     END IF;
 
     -- Validasi 2: Cek apakah Event terdaftar
     IF NOT EXISTS(SELECT 1 FROM EVENT WHERE event_id = NEW.event_id) THEN
-        RAISE EXCEPTION 'Event dengan ID % tidak ditemukan.', NEW.event_id;
+        RAISE EXCEPTION 'ERROR: Event dengan ID % tidak ditemukan.', NEW.event_id;
     END IF;
 
     -- Ambil nama untuk pesan error
@@ -21,7 +21,7 @@ BEGIN
 
     -- Validasi 3: Cek Duplikasi
     IF EXISTS (SELECT 1 FROM EVENT_ARTIST WHERE event_id = NEW.event_id AND artist_id = NEW.artist_id) THEN
-        RAISE EXCEPTION 'Artist "%" sudah terdaftar pada event "%"', v_artist_name, v_event_title;
+        RAISE EXCEPTION 'ERROR: Artist "%" sudah terdaftar pada event "%"', v_artist_name, v_event_title;
     END IF;
 
     RETURN NEW;

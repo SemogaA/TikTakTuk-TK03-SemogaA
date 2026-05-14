@@ -1,3 +1,4 @@
+<!-- tiktaktuk/templates/ticket/ticket.html -->
 {% extends "base.html" %}
 
 {% block content %}
@@ -347,7 +348,7 @@ function onOrderChange(selectEl) {
             const quota = parseInt(opt.getAttribute("data-quota") || 0);
             const clone = opt.cloneNode(true);
             clone.style.display = "";
-            if (used >= quota) { clone.disabled = true; clone.textContent += " [PENUH]"; }
+            
             catSelect.appendChild(clone);
         }
     });

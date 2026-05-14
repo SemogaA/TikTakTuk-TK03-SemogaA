@@ -15,7 +15,7 @@ BEGIN
 
     -- jika ad dup, lempar error
     IF existing_venue_id IS NOT NULL THEN
-        RAISE EXCEPTION 'Venue "%" di kota "%" sudah terdaftar dengan ID %.', NEW.venue_name, NEW.city, existing_venue_id;
+        RAISE EXCEPTION 'ERROR: Venue "%" di kota "%" sudah terdaftar dengan ID %.', NEW.venue_name, NEW.city, existing_venue_id;
     END IF;
 
     RETURN NEW;
@@ -38,7 +38,7 @@ BEGIN
         WHERE venue_id = OLD.venue_id 
           AND event_datetime >= CURRENT_TIMESTAMP
     ) THEN
-        RAISE EXCEPTION 'Venue "%" masih memiliki event aktif sehingga tidak dapat dihapus.', OLD.venue_name;
+        RAISE EXCEPTION 'ERROR: Venue "%" masih memiliki event aktif sehingga tidak dapat dihapus.', OLD.venue_name;
     END IF;
 
     -- jika tidak ada event aktif, maka dibolehkan untuk dihapus

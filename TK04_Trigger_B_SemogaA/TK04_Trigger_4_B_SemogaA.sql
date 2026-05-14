@@ -20,7 +20,7 @@ BEGIN
 
     IF NOT FOUND THEN
         -- PostgreSQL otomatis menambahkan awalan "ERROR: " pada RAISE EXCEPTION
-        RAISE EXCEPTION 'Promotion dengan ID % tidak ditemukan.', NEW.promotion_id;
+        RAISE EXCEPTION 'ERROR: Promotion dengan ID % tidak ditemukan.', NEW.promotion_id;
     END IF;
 
     -- Validasi 2: Cek apakah penggunaan sudah mencapai usage_limit
@@ -29,7 +29,7 @@ BEGIN
     WHERE promotion_id = NEW.promotion_id;
 
     IF v_current_usage >= v_usage_limit THEN
-        RAISE EXCEPTION 'Promotion "%" telah mencapai batas maksimum penggunaan.', v_promo_code;
+        RAISE EXCEPTION 'ERROR: Promotion "%" telah mencapai batas maksimum penggunaan.', v_promo_code;
     END IF;
 
     -- 2. Validasi Promotion Berdasarkan Tanggal Event saat Digunakan ke Order
@@ -45,7 +45,7 @@ BEGIN
 
     -- Memastikan start_date <= event_date <= end_date
     IF v_event_date < v_start_date OR v_event_date > v_end_date THEN
-        RAISE EXCEPTION 'Promotion "%" tidak berlaku untuk tanggal event ini.', v_promo_code;
+        RAISE EXCEPTION 'ERROR: Promotion "%" tidak berlaku untuk tanggal event ini.', v_promo_code;
     END IF;
 
     RETURN NEW;

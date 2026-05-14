@@ -95,18 +95,12 @@
                 class="p-1.5 rounded hover:bg-slate-100 transition text-slate-400 hover:text-slate-700" title="Edit">
                 Edit
               </button>
-              {% if seat.status == "Terisi" %}
-              <button type="button" disabled
-                title="Kursi ini sudah di-assign ke tiket dan tidak dapat dihapus. Hapus atau ubah tiket terlebih dahulu."
-                class="p-1.5 rounded text-slate-200 cursor-not-allowed">
-                Hapus
-              </button>
-              {% else %}
+              
               <button type="button" onclick="openDeleteModal('{{ seat.seat_id }}')"
                 class="p-1.5 rounded hover:bg-red-50 text-slate-400 hover:text-red-500 transition" title="Hapus">
                 Hapus
               </button>
-              {% endif %}
+              
             </div>
           </td>
           {% endif %}
