@@ -22,8 +22,11 @@ def _get_all_seats(search_query=None, venue_id=None):
         FROM SEAT s
         JOIN VENUE v ON s.venue_id = v.venue_id
         LEFT JOIN (
-            SELECT DISTINCT seat_id
-            FROM HAS_RELATIONSHIP
+            SELECT DISTINCT hr.seat_id
+            FROM HAS_RELATIONSHIP hr
+            JOIN TICKET t ON hr.ticket_id = t.ticket_id
+            JOIN "ORDER" o ON t.torder_id = o.order_id
+            WHERE t.status = 'Valid' AND o.payment_status IN ('Paid', 'Pending')
         ) assigned ON s.seat_id = assigned.seat_id
     """
     filters, params = [], []
@@ -45,8 +48,16 @@ def _get_seat_stats():
     with connection.cursor() as cursor:
         cursor.execute("SELECT COUNT(*) FROM SEAT;")
         total = cursor.fetchone()[0]
-        cursor.execute("SELECT COUNT(DISTINCT seat_id) FROM HAS_RELATIONSHIP;")
+        
+        cursor.execute("""
+            SELECT COUNT(DISTINCT hr.seat_id) 
+            FROM HAS_RELATIONSHIP hr
+            JOIN TICKET t ON hr.ticket_id = t.ticket_id
+            JOIN "ORDER" o ON t.torder_id = o.order_id
+            WHERE t.status = 'Valid' AND o.payment_status IN ('Paid', 'Pending');
+        """)
         terisi = cursor.fetchone()[0]
+        
     return {"total": total, "tersedia": total - terisi, "terisi": terisi}
 
 
