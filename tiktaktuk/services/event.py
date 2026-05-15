@@ -105,7 +105,17 @@ def update_event(session_id, event_id, event_title, event_datetime, venue_id, de
         else:
             return False, "Anda tidak memiliki izin akses."
 
+        cursor.execute(
+            "SELECT capacity FROM VENUE WHERE venue_id = %s;", [venue_id])
+        venue_cap = cursor.fetchone()
+        if not venue_cap:
+            return False, "Venue yang dipilih tidak ditemukan."
+
         if ticket_categories is not None:
+            total_new_quota = sum(int(tc['quota']) for tc in ticket_categories)
+            if total_new_quota > venue_cap[0]:
+                return False, f"Gagal: Total kuota tiket ({total_new_quota}) melebihi kapasitas maksimal venue ({venue_cap[0]})."
+
             cat_names = [tc['category_name'].strip().lower()
                          for tc in ticket_categories]
             if len(cat_names) != len(set(cat_names)):
