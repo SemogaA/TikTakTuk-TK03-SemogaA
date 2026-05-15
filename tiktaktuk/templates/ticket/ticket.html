@@ -340,6 +340,7 @@ function onCategoryChange(selectEl) {
     
     const seatWrapper = document.getElementById("seatWrapper");
     const seatSelect = document.getElementById("seatSelect");
+    
     seatSelect.innerHTML = '<option value="">-- Pilih Kursi --</option>';
     let hasSeat = false;
 
@@ -354,7 +355,15 @@ function onCategoryChange(selectEl) {
         });
     }
     
-    seatWrapper.classList.toggle("hidden", !hasSeat);
+    if (hasSeat) {
+        // kalau ada kursinya (Reserved Seating), munculin dan wajibin isi!
+        seatWrapper.classList.remove("hidden");
+        seatSelect.required = true; 
+    } else {
+        // kalau ga ada kursinya (Free Seating), sembunyiin dan ga usah wajib diisi!
+        seatWrapper.classList.add("hidden");
+        seatSelect.required = false; 
+    }
 }
 
 function openUpdateModal(ticketId, ticketCode, currentStatus, eventId, seatingType, currentSeatId, currentSeatLabel) {
