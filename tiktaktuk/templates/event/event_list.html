@@ -134,23 +134,39 @@
 
                 <div class="flex gap-2 mt-auto">
                     {% if selected_status == 'past' %}
-<button disabled class="w-full py-2.5 bg-slate-200 text-slate-400 font-bold rounded-xl cursor-not-allowed text-sm">
-    Event Selesai
-</button>
-{% else %}
-  {% if dashboard.role == 'customer' %}
-  <a href="{% url 'checkout' event.event_id %}"
-     class="w-full py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition shadow-sm text-sm text-center block">
-    Detail & Beli Tiket
-  </a>
-  {% else %}
-  <button disabled class="w-full py-2.5 bg-slate-200 text-slate-400 font-bold rounded-xl cursor-not-allowed text-sm">
-    Login sebagai Customer untuk beli
-  </button>
-  {% endif %}
-{% endif %}
+                    <button disabled class="w-full py-2.5 bg-slate-200 text-slate-400 font-bold rounded-xl cursor-not-allowed text-sm">
+                        Event Selesai
+                    </button>
+                    {% else %}
+                      {% if dashboard.role == 'customer' %}
+                      <a href="{% url 'checkout' event.event_id %}"
+                         class="w-full py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition shadow-sm text-sm text-center block">
+                        Detail & Beli Tiket
+                      </a>
+                      {% else %}
+                      <button disabled class="w-full py-2.5 bg-slate-200 text-slate-400 font-bold rounded-xl cursor-not-allowed text-sm">
+                        Login sebagai Customer untuk beli
+                      </button>
+                      {% endif %}
+                    {% endif %}
                     
-                    {% if dashboard.role == 'administrator' or dashboard.role == 'organizer' %}
+                    {% if dashboard.role == 'administrator' %}
+                    <button type="button" 
+                            onclick="openEditEventModal(this)"
+                            data-id="{{ event.event_id }}"
+                            data-title="{{ event.event_title|escapejs }}"
+                            data-organizer="{{ event.organizer_id }}"
+                            data-date="{{ event.event_datetime|date:'Y-m-d' }}"
+                            data-time="{{ event.event_datetime|date:'H:i' }}"
+                            data-venue="{{ event.venue_id }}"
+                            data-desc="{{ event.description|escapejs }}"
+                            data-image="{{ event.image_url|default:''|escapejs }}"
+                            data-artists="{{ event.artist_ids|join:',' }}"
+                            data-tickets="{% for t in event.ticket_list_full %}{{ t.name }}|{{ t.price }}|{{ t.quota }}{% if not forloop.last %};;{% endif %}{% endfor %}"
+                            class="px-3 bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-xl transition border border-slate-200" title="Edit Event">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                    </button>
+                    {% elif dashboard.role == 'organizer' and event.organizer_id|stringformat:"s" == user_organizer_id %}
                     <button type="button" 
                             onclick="openEditEventModal(this)"
                             data-id="{{ event.event_id }}"
@@ -184,8 +200,6 @@
 
     </div>
 </section>
-
-
 
 {% if dashboard.role == 'administrator' or dashboard.role == 'organizer' %}
 
@@ -236,20 +250,23 @@
                             {% endfor %}
                         </select>
                     </div>
+                    {% else %}
+                    <input type="hidden" name="organizer_id" value="{{ user_organizer_id }}">
                     {% endif %}
 
-                    <div>
-                        <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1">Artis</label>
-                        <div class="flex flex-wrap gap-2" id="artist-chips-container-create">
-                            {% for a in artists %}
-                            <button type="button" onclick="toggleArtist(this, 'create')" data-id="{{ a.artist_id }}" class="px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 text-xs font-semibold border border-transparent transition cursor-pointer">
-                                {{ a.name }}
+                    <div class="relative">
+                        <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1">Cari / Input UUID Artis</label>
+                        <div class="flex gap-2">
+                            <input type="text" id="search-artist-create" autocomplete="off" placeholder="Masukkan UUID Artis..." 
+                                class="flex-grow border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+                            <button type="button" id="btn-add-raw-create" class="bg-slate-800 text-white px-4 py-2.5 rounded-xl text-xs font-bold hover:bg-slate-900 transition shadow-sm">
+                                Add Raw
                             </button>
-                            {% empty %}
-                            <p class="text-xs text-slate-400">Data artis kosong.</p>
-                            {% endfor %}
                         </div>
-                        <div id="hidden-artists-create"></div>
+                        
+                        <ul id="dropdown-artist-create" class="absolute z-20 w-full bg-white border border-slate-200 rounded-xl shadow-lg mt-1 hidden max-h-60 overflow-y-auto"></ul>
+                        
+                        <div id="selected-artists-list-create" class="flex flex-col gap-2 mt-4"></div>
                     </div>
 
                     <div class="pt-2">
@@ -320,18 +337,23 @@
                             {% endfor %}
                         </select>
                     </div>
+                    {% else %}
+                    <input type="hidden" id="edit_organizer_id" name="organizer_id" value="{{ user_organizer_id }}">
                     {% endif %}
 
-                    <div>
-                        <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1">Artis</label>
-                        <div class="flex flex-wrap gap-2" id="artist-chips-container-edit">
-                            {% for a in artists %}
-                            <button type="button" onclick="toggleArtist(this, 'edit')" data-id="{{ a.artist_id }}" id="edit_chip_{{ a.artist_id }}" class="px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 text-xs font-semibold border border-transparent transition cursor-pointer">
-                                {{ a.name }}
+                    <div class="relative">
+                        <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1">Cari / Input UUID Artis</label>
+                        <div class="flex gap-2">
+                            <input type="text" id="search-artist-edit" autocomplete="off" placeholder="Masukkan UUID Artis..." 
+                                class="flex-grow border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+                            <button type="button" id="btn-add-raw-edit" class="bg-slate-800 text-white px-4 py-2.5 rounded-xl text-xs font-bold hover:bg-slate-900 transition shadow-sm">
+                                Add Raw
                             </button>
-                            {% endfor %}
                         </div>
-                        <div id="hidden-artists-edit"></div>
+                        
+                        <ul id="dropdown-artist-edit" class="absolute z-20 w-full bg-white border border-slate-200 rounded-xl shadow-lg mt-1 hidden max-h-60 overflow-y-auto"></ul>
+                        
+                        <div id="selected-artists-list-edit" class="flex flex-col gap-2 mt-4"></div>
                     </div>
 
                     <div class="pt-2">
@@ -360,110 +382,146 @@
     </div>
 
     <script>
-        function openCreateEventModal() {
-            document.getElementById('modal-create-event').classList.remove('hidden');
-            document.getElementById('modal-create-event').classList.add('flex');
+    const allArtists = [
+        {% for a in artists %}
+        { id: "{{ a.artist_id }}", name: "{{ a.name|escapejs }}" },
+        {% endfor %}
+    ];
+
+    function addArtistToUI(id, name, containerId) {
+        const visualList = document.getElementById(containerId);
+        if (!visualList) return;
+
+        const row = document.createElement('div');
+        row.className = 'flex justify-between items-center bg-slate-50 border border-slate-200 p-3 rounded-xl shadow-sm group';
+        row.innerHTML = `
+            <div class="flex flex-col">
+                <span class="text-sm font-bold text-slate-700">${name} - (${id})</span>
+                <input type="hidden" name="artists" value="${id}">
+            </div>
+            <button type="button" class="text-slate-400 hover:text-red-500 font-bold px-2 transition" onclick="this.parentElement.remove()">&times;</button>
+        `;
+        visualList.appendChild(row);
+    }
+
+    function setupArtistLogic(suffix) {
+        const input = document.getElementById(`search-artist-${suffix}`);
+        const dropdown = document.getElementById(`dropdown-artist-${suffix}`);
+        const btn = document.getElementById(`btn-add-raw-${suffix}`);
+        const listId = `selected-artists-list-${suffix}`;
+
+        if (!input || !dropdown || !btn) return;
+
+        function render(query = "") {
+            dropdown.innerHTML = '';
+            const filtered = allArtists.filter(a => a.id.toLowerCase().includes(query.toLowerCase())).slice(0, 10);
             
-            document.getElementById('hidden-artists-create').innerHTML = '';
-            document.querySelectorAll('#artist-chips-container-create button').forEach(btn => {
-                btn.classList.remove('bg-blue-600', 'text-white', 'border-blue-700');
-                btn.classList.add('bg-slate-100', 'text-slate-600', 'border-transparent');
-            });
-            document.getElementById('ticket-container').innerHTML = '';
-            addTicketRow('ticket-container');
+            if (filtered.length > 0) {
+                filtered.forEach(artist => {
+                    const li = document.createElement('li');
+                    li.className = 'px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-slate-50 last:border-0 transition';
+                    li.innerHTML = `<div class="text-sm font-bold text-slate-800">${artist.name}</div><div class="text-[10px] text-slate-400 font-mono">${artist.id}</div>`;
+                    li.onclick = () => {
+                        addArtistToUI(artist.id, artist.name, listId);
+                        input.value = '';
+                        dropdown.classList.add('hidden');
+                    };
+                    dropdown.appendChild(li);
+                });
+                dropdown.classList.remove('hidden');
+            } else { dropdown.classList.add('hidden'); }
         }
 
-        function closeEventModal(id) {
-            document.getElementById(id).classList.add('hidden');
-            document.getElementById(id).classList.remove('flex');
-        }
-
-        function addTicketRow(containerId, name='', price='', quota='') {
-            const container = document.getElementById(containerId);
-            const row = document.createElement('div');
-            row.className = 'border border-slate-200 p-3 rounded-xl bg-slate-50 flex flex-col md:flex-row gap-3 mt-3 relative';
-            row.innerHTML = `
-                <input type="text" name="tc_name[]" value="${name}" placeholder="Nama Kategori (cth. VIP)" required class="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
-                <input type="number" name="tc_price[]" value="${price}" placeholder="Harga" required class="w-full md:w-32 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
-                <input type="number" name="tc_quota[]" value="${quota}" placeholder="Kuota" required class="w-full md:w-24 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
-                <button type="button" onclick="this.parentElement.remove()" class="absolute -top-2 -right-2 bg-red-500 text-white w-5 h-5 rounded-full flex items-center justify-center text-xs shadow hover:bg-red-600">&times;</button>
-            `;
-            container.appendChild(row);
-        }
-
-        function toggleArtist(btn, formType) {
-            const artistId = btn.getAttribute('data-id');
-            const hiddenContainer = document.getElementById('hidden-artists-' + formType);
-            const inputId = `input-${formType}-${artistId}`;
-
-            const isActive = btn.classList.contains('bg-blue-600');
-            if (isActive) {
-                btn.classList.remove('bg-blue-600', 'text-white', 'border-blue-700');
-                btn.classList.add('bg-slate-100', 'text-slate-600', 'border-transparent');
-                const hiddenInput = document.getElementById(inputId);
-                if (hiddenInput) hiddenInput.remove();
-            } else {
-                btn.classList.remove('bg-slate-100', 'text-slate-600', 'border-transparent');
-                btn.classList.add('bg-blue-600', 'text-white', 'border-blue-700');
-                
-                const input = document.createElement('input');
-                input.type = 'hidden';
-                input.name = 'artists';
-                input.value = artistId;
-                input.id = inputId;
-                hiddenContainer.appendChild(input);
+        input.onfocus = () => render(input.value);
+        input.oninput = (e) => render(e.target.value);
+        
+        btn.onclick = () => {
+            const val = input.value.trim();
+            if (val) {
+                const match = allArtists.find(a => a.id.toLowerCase() === val.toLowerCase());
+                addArtistToUI(val, match ? match.name : "???", listId);
+                input.value = '';
+                dropdown.classList.add('hidden');
             }
-        }
+        };
 
-        function openEditEventModal(btn) {
-            const eventId = btn.getAttribute('data-id');
-            
-            document.getElementById('form-edit-event').action = `/event/update/${eventId}/`;
-            document.getElementById('edit_event_title').value = btn.getAttribute('data-title');
-            document.getElementById('edit_date').value = btn.getAttribute('data-date');
-            document.getElementById('edit_time').value = btn.getAttribute('data-time');
-            document.getElementById('edit_venue_id').value = btn.getAttribute('data-venue');
-            document.getElementById('edit_description').value = btn.getAttribute('data-desc');
-            document.getElementById('edit_image_url').value = btn.getAttribute('data-image');
-
-            const orgSelect = document.getElementById('edit_organizer_id');
-            if (orgSelect) {
-                orgSelect.value = btn.getAttribute('data-organizer');
+        document.addEventListener('click', (e) => {
+            if (!input.contains(e.target) && !dropdown.contains(e.target)) {
+                dropdown.classList.add('hidden');
             }
+        });
+    }
 
-            document.getElementById('hidden-artists-edit').innerHTML = '';
-            document.querySelectorAll('#artist-chips-container-edit button').forEach(b => {
-                b.classList.remove('bg-blue-600', 'text-white', 'border-blue-700');
-                b.classList.add('bg-slate-100', 'text-slate-600', 'border-transparent');
-            });
+    document.addEventListener('DOMContentLoaded', () => {
+        setupArtistLogic('create');
+        setupArtistLogic('edit');
+    });
 
-            const artistArray = btn.getAttribute('data-artists').split(',');
-            artistArray.forEach(id => {
-                if(id && id !== 'None') {
-                    const chipBtn = document.getElementById('edit_chip_' + id);
-                    if(chipBtn) toggleArtist(chipBtn, 'edit');
+    function openCreateEventModal() {
+        document.getElementById('modal-create-event').classList.remove('hidden');
+        document.getElementById('modal-create-event').classList.add('flex');
+        document.getElementById('selected-artists-list-create').innerHTML = ''; // Reset list
+        document.getElementById('ticket-container').innerHTML = '';
+        addTicketRow('ticket-container');
+    }
+
+    function openEditEventModal(btn) {
+        const eventId = btn.getAttribute('data-id');
+        document.getElementById('form-edit-event').action = `/event/update/${eventId}/`;
+        document.getElementById('edit_event_title').value = btn.getAttribute('data-title');
+        document.getElementById('edit_date').value = btn.getAttribute('data-date');
+        document.getElementById('edit_time').value = btn.getAttribute('data-time');
+        document.getElementById('edit_venue_id').value = btn.getAttribute('data-venue');
+        document.getElementById('edit_description').value = btn.getAttribute('data-desc');
+        document.getElementById('edit_image_url').value = btn.getAttribute('data-image');
+
+        const orgSelect = document.getElementById('edit_organizer_id');
+        if (orgSelect) orgSelect.value = btn.getAttribute('data-organizer');
+
+        document.getElementById('selected-artists-list-edit').innerHTML = '';
+        const artistIds = btn.getAttribute('data-artists').split(',');
+        artistIds.forEach(id => {
+            if(id && id !== 'None') {
+                const match = allArtists.find(a => a.id === id);
+                addArtistToUI(id, match ? match.name : "???", 'selected-artists-list-edit');
+            }
+        });
+
+        const ticketContainer = document.getElementById('edit-ticket-container');
+        ticketContainer.innerHTML = '';
+        const ticketsRaw = btn.getAttribute('data-tickets');
+        if (ticketsRaw && ticketsRaw !== 'None') {
+            ticketsRaw.split(';;').forEach(t => {
+                const parts = t.split('|');
+                if (parts.length === 3) {
+                    addTicketRow('edit-ticket-container', parts[0], parts[1], parts[2]);
                 }
             });
-
-            const ticketContainer = document.getElementById('edit-ticket-container');
-            ticketContainer.innerHTML = '';
-            
-            const ticketsRaw = btn.getAttribute('data-tickets');
-            if (ticketsRaw && ticketsRaw !== 'None') {
-                const tickets = ticketsRaw.split(';;');
-                tickets.forEach(t => {
-                    const parts = t.split('|');
-                    if (parts.length === 3) {
-                        addTicketRow('edit-ticket-container', parts[0], parts[1], parts[2]);
-                    }
-                });
-            } else {
-                addTicketRow('edit-ticket-container');
-            }
-
-            document.getElementById('modal-edit-event').classList.remove('hidden');
-            document.getElementById('modal-edit-event').classList.add('flex');
+        } else {
+            addTicketRow('edit-ticket-container');
         }
+
+        document.getElementById('modal-edit-event').classList.remove('hidden');
+        document.getElementById('modal-edit-event').classList.add('flex');
+    }
+
+    function closeEventModal(id) {
+        document.getElementById(id).classList.add('hidden');
+        document.getElementById(id).classList.remove('flex');
+    }
+
+    function addTicketRow(containerId, name='', price='', quota='') {
+        const container = document.getElementById(containerId);
+        const row = document.createElement('div');
+        row.className = 'border border-slate-200 p-3 rounded-xl bg-slate-50 flex flex-col md:flex-row gap-3 mt-3 relative';
+        row.innerHTML = `
+            <input type="text" name="tc_name[]" value="${name}" placeholder="Nama Kategori (cth. VIP)" required class="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+            <input type="number" name="tc_price[]" value="${price}" placeholder="Harga" required class="w-full md:w-32 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+            <input type="number" name="tc_quota[]" value="${quota}" placeholder="Kuota" required class="w-full md:w-24 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+            <button type="button" onclick="this.parentElement.remove()" class="absolute -top-2 -right-2 bg-red-500 text-white w-5 h-5 rounded-full flex items-center justify-center text-xs shadow hover:bg-red-600">&times;</button>
+        `;
+        container.appendChild(row);
+    }
     </script>
 {% endif %}
 {% endblock %}

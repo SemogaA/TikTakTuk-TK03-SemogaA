@@ -9,11 +9,10 @@ from tiktaktuk.services import artist as artist_service
 def list_view(request):
     session_id = request.COOKIES.get('session_id')
 
-    # ambil data filter dari URL
     search_query = request.GET.get('search', '')
     venue_id = request.GET.get('venue', '')
     artist_id = request.GET.get('artist', '')
-    status = request.GET.get('status', 'upcoming')  # default upcoming
+    status = request.GET.get('status', 'upcoming')
 
     events = event_service.get_events(
         search_query, venue_id if venue_id else None, artist_id if artist_id else None, status)
@@ -32,15 +31,26 @@ def list_view(request):
         'selected_status': status,
         'venues': venues,
         'artists': artists,
+        'user_organizer_id': None,
     }
 
-    # jika user login, tambahkan data session ke context
     if session_id:
         role = user_service.get_user_role_by_session(session_id)
         if role:
             profile_data = user_service.get_profile_data(session_id)
             context['dashboard'] = {'role': role}
-            context['username'] = profile_data['username']
+            context['username'] = profile_data.get('username', '')
+
+            if role == 'organizer':
+                from django.db import connection
+                with connection.cursor() as cursor:
+                    user_id = user_service.validate_session(session_id)
+                    cursor.execute(
+                        "SELECT organizer_id FROM ORGANIZER WHERE user_id = %s;", [user_id])
+                    res = cursor.fetchone()
+                    if res:
+                        # Simpan sebagai string agar sinkron dengan UUID di template
+                        context['user_organizer_id'] = str(res[0])
 
             if role == 'administrator':
                 context['organizers'] = user_service.get_all_organizers()

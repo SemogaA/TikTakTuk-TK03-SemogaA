@@ -39,6 +39,12 @@ def create_event(session_id, event_title, event_datetime, venue_id, description,
         if total_quota_requested > venue_cap[0]:
             return False, f"Gagal: Total kuota tiket ({total_quota_requested}) melebihi kapasitas maksimal venue ({venue_cap[0]}).", None
 
+        if ticket_categories:
+            cat_names = [tc['category_name'].strip().lower()
+                         for tc in ticket_categories]
+            if len(cat_names) != len(set(cat_names)):
+                return False, "Gagal: Tidak boleh ada nama kategori tiket yang sama dalam satu acara.", None
+
         try:
             with transaction.atomic():
                 cursor.execute("""
@@ -78,29 +84,39 @@ def update_event(session_id, event_id, event_title, event_datetime, venue_id, de
         if not user_id:
             return False, "Sesi tidak valid, silakan login kembali."
 
+        target_org_id = None
+        if role == "organizer":
+            cursor.execute(
+                "SELECT organizer_id FROM ORGANIZER WHERE user_id = %s;", [user_id])
+            res = cursor.fetchone()
+            if not res:
+                return False, "Akun Anda tidak terdaftar sebagai Organizer."
+            target_org_id = res[0]
+
+            cursor.execute("SELECT 1 FROM EVENT WHERE event_id = %s AND organizer_id = %s;", [
+                           event_id, target_org_id])
+            if not cursor.fetchone():
+                return False, "Anda tidak memiliki izin untuk mengedit event ini (Bukan milik Anda)."
+
+        elif role == "administrator":
+            if not organizer_id:
+                return False, "Admin harus menentukan Organizer untuk event ini."
+            target_org_id = organizer_id
+        else:
+            return False, "Anda tidak memiliki izin akses."
+
+        if ticket_categories is not None:
+            cat_names = [tc['category_name'].strip().lower()
+                         for tc in ticket_categories]
+            if len(cat_names) != len(set(cat_names)):
+                return False, "Gagal: Tidak boleh ada nama kategori tiket yang sama (duplikat) dalam satu acara."
+
         try:
             with transaction.atomic():
-                if role == "administrator":
-                    if not organizer_id:
-                        return False, "Admin harus menentukan Organizer untuk event ini."
-
-                    cursor.execute("""
-                        UPDATE EVENT SET event_title=%s, event_datetime=%s, venue_id=%s, description=%s, image_url=%s, organizer_id=%s
-                        WHERE event_id=%s;
-                    """, [event_title, event_datetime, venue_id, description, image_url, organizer_id, event_id])
-                elif role == "organizer":
-                    cursor.execute(
-                        "SELECT organizer_id FROM ORGANIZER WHERE user_id = %s;", [user_id])
-                    res = cursor.fetchone()
-                    if not res:
-                        return False, "Akun Anda tidak terdaftar sebagai Organizer."
-
-                    cursor.execute("""
-                        UPDATE EVENT SET event_title=%s, event_datetime=%s, venue_id=%s, description=%s, image_url=%s
-                        WHERE event_id=%s AND organizer_id=%s;
-                    """, [event_title, event_datetime, venue_id, description, image_url, event_id, res[0]])
-                else:
-                    return False, "Anda tidak memiliki izin untuk mengedit event ini."
+                cursor.execute("""
+                    UPDATE EVENT SET event_title=%s, event_datetime=%s, venue_id=%s, description=%s, image_url=%s, organizer_id=%s
+                    WHERE event_id=%s;
+                """, [event_title, event_datetime, venue_id, description, image_url, target_org_id, event_id])
 
                 if artists is not None:
                     cursor.execute(
@@ -112,16 +128,47 @@ def update_event(session_id, event_id, event_title, event_datetime, venue_id, de
                         """, [event_id, artist['artist_id'], artist.get('role', 'Supporting')])
 
                 if ticket_categories is not None:
-                    try:
-                        cursor.execute(
-                            "DELETE FROM TICKET_CATEGORY WHERE tevent_id = %s;", [event_id])
-                        for tc in ticket_categories:
+                    cursor.execute(
+                        "SELECT category_name FROM TICKET_CATEGORY WHERE tevent_id = %s;", [event_id])
+                    existing_categories = [row[0] for row in cursor.fetchall()]
+
+                    for tc in ticket_categories:
+                        cat_name = tc['category_name']
+                        new_quota = int(tc['quota'])
+                        new_price = float(tc['price'])
+
+                        if new_quota <= 0:
+                            return False, f"Gagal: Kuota untuk kategori '{cat_name}' minimal adalah 1."
+
+                        if cat_name in existing_categories:
+                            cursor.execute("""
+                                SELECT COUNT(*) FROM TICKET t
+                                JOIN "ORDER" o ON t.torder_id = o.order_id
+                                JOIN TICKET_CATEGORY tc ON t.tcategory_id = tc.category_id
+                                WHERE tc.tevent_id = %s AND tc.category_name = %s AND o.payment_status != 'Cancelled';
+                            """, [event_id, cat_name])
+                            sold_tickets = cursor.fetchone()[0]
+
+                            if new_quota < sold_tickets:
+                                return False, f"Gagal: Tidak bisa mengubah kuota '{cat_name}' menjadi {new_quota}. Sudah ada {sold_tickets} tiket terjual!"
+
+                            cursor.execute("""
+                                UPDATE TICKET_CATEGORY SET quota = %s, price = %s 
+                                WHERE tevent_id = %s AND category_name = %s;
+                            """, [new_quota, new_price, event_id, cat_name])
+                            existing_categories.remove(cat_name)
+                        else:
                             cursor.execute("""
                                 INSERT INTO TICKET_CATEGORY (category_name, quota, price, tevent_id)
                                 VALUES (%s, %s, %s, %s);
-                            """, [tc['category_name'], tc['quota'], tc['price'], event_id])
-                    except IntegrityError:
-                        return False, "Gagal mengedit kategori: Sudah ada tiket yang terjual untuk acara ini. Kategori tiket tidak dapat diubah."
+                            """, [cat_name, new_quota, new_price, event_id])
+
+                    for cat_to_delete in existing_categories:
+                        try:
+                            cursor.execute("DELETE FROM TICKET_CATEGORY WHERE tevent_id = %s AND category_name = %s;", [
+                                           event_id, cat_to_delete])
+                        except IntegrityError:
+                            return False, f"Gagal: Kategori '{cat_to_delete}' tidak bisa dihapus karena sudah ada tiket terjual."
 
                 return True, "Perubahan event berhasil disimpan!"
         except Exception as e:
