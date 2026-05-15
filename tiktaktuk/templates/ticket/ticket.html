@@ -58,8 +58,9 @@
             class="border border-slate-200 rounded-xl px-4 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
             <option value="">Semua Status</option>
             <option value="Valid">Valid</option>
+            <option value="Pending">Pending</option>
             <option value="Terpakai">Terpakai</option>
-            <option value="Cancelled">Cancelled</option>
+            <option value="Batal">Batal</option>
         </select>
     </div>
 
@@ -79,8 +80,12 @@
                 <div class="flex items-center gap-2 mb-1.5 flex-wrap">
                     {% if t.status == "Valid" %}
                         <span class="px-2 py-0.5 text-xs rounded-full font-semibold bg-green-100 text-green-700">VALID</span>
+                    {% elif t.status == "Pending" %}
+                        <span class="px-2 py-0.5 text-xs rounded-full font-semibold bg-amber-100 text-amber-700">PENDING</span>
                     {% elif t.status == "Terpakai" %}
                         <span class="px-2 py-0.5 text-xs rounded-full font-semibold bg-orange-100 text-orange-700">TERPAKAI</span>
+                    {% elif t.status == "Batal" %}
+                        <span class="px-2 py-0.5 text-xs rounded-full font-semibold bg-rose-100 text-rose-700">BATAL</span>
                     {% else %}
                         <span class="px-2 py-0.5 text-xs rounded-full font-semibold bg-red-100 text-red-700">{{ t.status|upper }}</span>
                     {% endif %}
@@ -190,32 +195,30 @@
         </div>
         <form method="POST" action="{% url 'create_ticket' %}" class="px-6 py-5 space-y-4">
             {% csrf_token %}
+            
             <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-widest mb-1.5">Order</label>
-                <select name="order_id" id="orderSelect" onchange="onOrderChange(this)"
-                    class="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option value="">-- Pilih Order --</option>
-                    {% for o in orders %}
-                    <option value="{{ o.order_id }}" data-event="{{ o.event_id }}" data-seating-type="{{ o.seating_type }}">
-                        {{ o.order_id }} — {{ o.customer_name }} — {{ o.event_title }}
-                    </option>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-widest mb-1.5">Pelanggan</label>
+                <select name="customer_id" required class="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="" disabled selected>-- Pilih Customer --</option>
+                    {% for cust in customers %}
+                    <option value="{{ cust.customer_id }}">{{ cust.full_name }}</option>
                     {% endfor %}
                 </select>
             </div>
+            
             <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-widest mb-1.5">Kategori Tiket</label>
-                <select name="category_id" id="categorySelect"
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-widest mb-1.5">Kategori Tiket & Event</label>
+                <select name="category_id" id="categorySelect" required onchange="onCategoryChange(this)"
                     class="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option value="">-- Pilih Order dulu --</option>
+                    <option value="" disabled selected>-- Pilih Event & Kategori --</option>
                     {% for c in categories %}
-                    <option value="{{ c.category_id }}" data-event="{{ c.tevent_id }}"
-                            data-quota="{{ c.quota }}" data-used="{{ c.used }}"
-                            class="cat-option" style="display:none">
-                        {{ c.category_name }} — Rp {{ c.price|floatformat:0 }} ({{ c.used }}/{{ c.quota }})
+                    <option value="{{ c.category_id }}" data-event="{{ c.tevent_id }}">
+                        {{ c.event_title }} [ID: {{ c.tevent_id|stringformat:"s"|slice:":8" }}] — {{ c.category_name }} (Rp {{ c.price|floatformat:0 }})
                     </option>
                     {% endfor %}
                 </select>
             </div>
+
             <div id="seatWrapper" class="hidden">
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-widest mb-1.5">
                     Kursi <span class="text-slate-400 font-normal normal-case">(opsional — reserved seating)</span>
@@ -230,16 +233,12 @@
                     {% endfor %}
                 </select>
             </div>
-            <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-widest mb-1.5">Kode Tiket</label>
-                <input type="text" disabled placeholder="Auto-generate saat dibuat"
-                    class="w-full border border-slate-100 rounded-xl px-3 py-2.5 text-sm bg-slate-50 text-slate-400 font-mono cursor-not-allowed">
-            </div>
+
             <div class="flex gap-3 pt-2">
                 <button type="button" onclick="closeCreateModal()"
                     class="flex-1 bg-slate-100 text-slate-700 py-2.5 rounded-xl text-sm font-semibold hover:bg-slate-200 transition">Batal</button>
                 <button type="submit"
-                    class="flex-1 bg-blue-600 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 transition shadow">Buat Tiket</button>
+                    class="flex-1 bg-blue-600 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 transition shadow">Buat Tiket & Order</button>
             </div>
         </form>
     </div>
@@ -335,30 +334,16 @@ const createCategoryOptionTemplates = Array.from(document.querySelectorAll("opti
 const createSeatOptionTemplates = Array.from(document.querySelectorAll("option.seat-option")).map(opt => opt.cloneNode(true));
 const updateSeatOptionTemplates = Array.from(document.querySelectorAll("option.update-seat-option")).map(opt => opt.cloneNode(true));
 
-function onOrderChange(selectEl) {
+function onCategoryChange(selectEl) {
     const selectedOption = selectEl.options[selectEl.selectedIndex];
     const eventId = selectedOption ? selectedOption.getAttribute("data-event") : "";
-    const seatingType = selectedOption ? selectedOption.getAttribute("data-seating-type") : "";
-    const catSelect = document.getElementById("categorySelect");
-
-    catSelect.innerHTML = '<option value="">-- Pilih Kategori --</option>';
-    createCategoryOptionTemplates.forEach(opt => {
-        if (opt.getAttribute("data-event") === eventId) {
-            const used = parseInt(opt.getAttribute("data-used") || 0);
-            const quota = parseInt(opt.getAttribute("data-quota") || 0);
-            const clone = opt.cloneNode(true);
-            clone.style.display = "";
-            
-            catSelect.appendChild(clone);
-        }
-    });
-
+    
     const seatWrapper = document.getElementById("seatWrapper");
     const seatSelect = document.getElementById("seatSelect");
     seatSelect.innerHTML = '<option value="">-- Pilih Kursi --</option>';
     let hasSeat = false;
 
-    if (seatingType === "reserved" && eventId) {
+    if (eventId) {
         createSeatOptionTemplates.forEach(opt => {
             if (opt.getAttribute("data-event") === eventId) {
                 const clone = opt.cloneNode(true);
@@ -368,12 +353,8 @@ function onOrderChange(selectEl) {
             }
         });
     }
-    seatWrapper.classList.toggle("hidden", seatingType !== "reserved");
-    seatSelect.required = seatingType === "reserved";
-    seatSelect.disabled = seatingType !== "reserved";
-    if (seatingType === "reserved" && !hasSeat) {
-        seatSelect.innerHTML = '<option value="">Tidak ada kursi tersedia</option>';
-    }
+    
+    seatWrapper.classList.toggle("hidden", !hasSeat);
 }
 
 function openUpdateModal(ticketId, ticketCode, currentStatus, eventId, seatingType, currentSeatId, currentSeatLabel) {

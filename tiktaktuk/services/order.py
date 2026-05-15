@@ -328,10 +328,31 @@ def update_order(session_id, order_id, payment_status):
         if not user_id or role != 'administrator':
             return False
 
-        cursor.execute("""
-            UPDATE "ORDER" SET payment_status = %s WHERE order_id = %s;
-        """, [payment_status, order_id])
-    return True
+        try:
+            from django.db import transaction
+            with transaction.atomic():
+                cursor.execute("""
+                    UPDATE "ORDER" SET payment_status = %s WHERE order_id = %s;
+                """, [payment_status, order_id])
+
+                if payment_status == 'Cancelled':
+                    # jika order batal, semua tiket yang belum terpakai jadi batal (kursi dilepas)
+                    cursor.execute("""
+                        UPDATE TICKET SET status = 'Batal' 
+                        WHERE torder_id = %s AND status != 'Terpakai';
+                    """, [order_id])
+
+                elif payment_status in ('Paid', 'Pending'):
+                    # jika order dikembalikan ke Paid/Pending dari Cancelled, tiket direstore ke Valid
+                    cursor.execute("""
+                        UPDATE TICKET SET status = 'Valid' 
+                        WHERE torder_id = %s AND status = 'Batal';
+                    """, [order_id])
+
+            return True
+        except Exception as e:
+            print(f"Error update order: {e}")
+            return False
 
 
 def delete_order(session_id, order_id):

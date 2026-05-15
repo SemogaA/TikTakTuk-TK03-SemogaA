@@ -482,3 +482,13 @@ def get_all_organizers():
         cursor.execute(
             "SELECT organizer_id, organizer_name FROM ORGANIZER ORDER BY organizer_name ASC;")
         return dictfetchall(cursor)
+
+
+def get_all_customers():
+    from django.db import connection
+    from tiktaktuk.services.utils import dictfetchall
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT customer_id, full_name FROM CUSTOMER ORDER BY full_name ASC;")
+        return dictfetchall(cursor)

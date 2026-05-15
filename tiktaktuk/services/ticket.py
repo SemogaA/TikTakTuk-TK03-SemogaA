@@ -29,10 +29,9 @@ def check_seat_belongs_to_event(cursor, seat_id, event_id):
     return cursor.fetchone() is not None
 
 
-def create_ticket(session_id, tcategory_id, torder_id, seat_id=None):
+def create_ticket(session_id, tcategory_id, customer_id, seat_id=None):
     """
     note: admin & organizer bisa bikin tiket manual.
-    harus nempel ke sebuah order_id yang valid.
     """
     with connection.cursor() as cursor:
         user_id = validate_session(session_id)
@@ -41,9 +40,8 @@ def create_ticket(session_id, tcategory_id, torder_id, seat_id=None):
         if not user_id or (role != 'administrator' and role != 'organizer'):
             return None, 'Anda tidak memiliki akses.'
 
-        # ambil data event & tipe venue dari kategori tiket
         cursor.execute("""
-            SELECT e.event_id, e.organizer_id, v.seating_type
+            SELECT e.event_id, e.organizer_id, v.seating_type, tc.price
             FROM TICKET_CATEGORY tc
             JOIN EVENT e ON tc.tevent_id = e.event_id
             JOIN VENUE v ON e.venue_id = v.venue_id
@@ -53,17 +51,7 @@ def create_ticket(session_id, tcategory_id, torder_id, seat_id=None):
 
         if not ev_data:
             return None, 'Kategori tiket tidak ditemukan.'
-        event_id, event_org_id, seating_type = ev_data
-
-        cursor.execute("""
-            SELECT DISTINCT tc.tevent_id
-            FROM TICKET t
-            JOIN TICKET_CATEGORY tc ON t.tcategory_id = tc.category_id
-            WHERE t.torder_id = %s;
-        """, [torder_id])
-        order_event_ids = {row[0] for row in cursor.fetchall()}
-        if event_id not in order_event_ids:
-            return None, 'Kategori tiket tidak sesuai dengan event dari order.'
+        event_id, event_org_id, seating_type, price = ev_data
 
         # validasi kepemilikan organizer
         if role == 'organizer':
@@ -87,12 +75,19 @@ def create_ticket(session_id, tcategory_id, torder_id, seat_id=None):
 
         try:
             with transaction.atomic():
-                ticket_code = f"TKT-{str(uuid.uuid4())[:8].upper()}"
+                # bikin order lunas otomatis
+                cursor.execute("""
+                    INSERT INTO "ORDER" (payment_status, total_amount, customer_id)
+                    VALUES ('Paid', %s, %s) RETURNING order_id;
+                """, [price, customer_id])
+                new_order_id = cursor.fetchone()[0]
 
+                # bikin tiket (nempel ke order yang baru dibikin)
+                ticket_code = f"TKT-{str(uuid.uuid4())[:8].upper()}"
                 cursor.execute("""
                     INSERT INTO TICKET (ticket_code, tcategory_id, torder_id, status)
                     VALUES (%s, %s, %s, 'Valid') RETURNING ticket_id;
-                """, [ticket_code, tcategory_id, torder_id])
+                """, [ticket_code, tcategory_id, new_order_id])
                 ticket_id = cursor.fetchone()[0]
 
                 if seat_id:
@@ -127,13 +122,19 @@ def get_all_tickets(session_id):
             # admin liat semua tiket di platform
             summary_query = """
                 SELECT 
-                    COUNT(*) as total_ticket,
-                    SUM(CASE WHEN status = 'Valid' THEN 1 ELSE 0 END) as jumlah_valid,
-                    SUM(CASE WHEN status = 'Terpakai' THEN 1 ELSE 0 END) as terpakai
-                FROM TICKET;
+                    COUNT(t.ticket_id) as total_ticket,
+                    SUM(CASE WHEN t.status = 'Valid' AND o.payment_status = 'Paid' THEN 1 ELSE 0 END) as jumlah_valid,
+                    SUM(CASE WHEN t.status = 'Terpakai' THEN 1 ELSE 0 END) as terpakai
+                FROM TICKET t
+                JOIN "ORDER" o ON t.torder_id = o.order_id;
             """
             base_query = """
-                SELECT t.ticket_id, t.ticket_code, t.status, 
+                SELECT t.ticket_id, t.ticket_code, 
+                       CASE 
+                           WHEN o.payment_status = 'Pending' THEN 'Pending'
+                           WHEN o.payment_status = 'Cancelled' THEN 'Batal'
+                           ELSE t.status 
+                       END AS status, 
                        tc.category_name, tc.price, e.event_id, e.event_title, e.event_datetime,
                        v.venue_name, v.seating_type, o.order_id AS torder_id,
                        s.seat_id,
@@ -169,15 +170,18 @@ def get_all_tickets(session_id):
             summary_query = """
                 SELECT 
                     COUNT(t.ticket_id) as total_ticket,
-                    SUM(CASE WHEN t.status = 'Valid' THEN 1 ELSE 0 END) as jumlah_valid,
+                    SUM(CASE WHEN t.status = 'Valid' AND o.payment_status = 'Paid' THEN 1 ELSE 0 END) as jumlah_valid,
                     SUM(CASE WHEN t.status = 'Terpakai' THEN 1 ELSE 0 END) as terpakai
                 FROM TICKET t
-                JOIN TICKET_CATEGORY tc ON t.tcategory_id = tc.category_id
-                JOIN EVENT e ON tc.tevent_id = e.event_id
-                WHERE e.organizer_id = %s;
+                JOIN "ORDER" o ON t.torder_id = o.order_id;
             """
             base_query = """
-                SELECT t.ticket_id, t.ticket_code, t.status, 
+                SELECT t.ticket_id, t.ticket_code, 
+                       CASE 
+                           WHEN o.payment_status = 'Pending' THEN 'Pending'
+                           WHEN o.payment_status = 'Cancelled' THEN 'Batal'
+                           ELSE t.status 
+                       END AS status, 
                        tc.category_name, tc.price, e.event_id, e.event_title, e.event_datetime,
                        v.venue_name, v.seating_type, o.order_id AS torder_id,
                        s.seat_id,
@@ -214,14 +218,18 @@ def get_all_tickets(session_id):
             summary_query = """
                 SELECT 
                     COUNT(t.ticket_id) as total_ticket,
-                    SUM(CASE WHEN t.status = 'Valid' THEN 1 ELSE 0 END) as jumlah_valid,
+                    SUM(CASE WHEN t.status = 'Valid' AND o.payment_status = 'Paid' THEN 1 ELSE 0 END) as jumlah_valid,
                     SUM(CASE WHEN t.status = 'Terpakai' THEN 1 ELSE 0 END) as terpakai
                 FROM TICKET t
-                JOIN "ORDER" o ON t.torder_id = o.order_id
-                WHERE o.customer_id = %s;
+                JOIN "ORDER" o ON t.torder_id = o.order_id;
             """
             base_query = """
-                SELECT t.ticket_id, t.ticket_code, t.status, 
+                SELECT t.ticket_id, t.ticket_code, 
+                       CASE 
+                           WHEN o.payment_status = 'Pending' THEN 'Pending'
+                           WHEN o.payment_status = 'Cancelled' THEN 'Batal'
+                           ELSE t.status 
+                       END AS status, 
                        tc.category_name, tc.price, e.event_id, e.event_title, e.event_datetime,
                        v.venue_name, v.seating_type, o.order_id AS torder_id,
                        s.seat_id,
@@ -325,7 +333,8 @@ def update_ticket(session_id, ticket_id, status, seat_id=None):
 
                 if seat_id and seating_type == 'reserved':
                     if not check_seat_belongs_to_event(cursor, seat_id, event_id):
-                        print("error: kursi pengganti tidak sesuai dengan venue event!")
+                        print(
+                            "error: kursi pengganti tidak sesuai dengan venue event!")
                         raise Exception("kursi tidak sesuai event")
                     if seat_id != str(current_seat_id) and not check_seat_availability(cursor, seat_id, event_id):
                         print("error: kursi pengganti sudah terisi!")
@@ -353,6 +362,8 @@ def delete_ticket(session_id, ticket_id):
             return False
 
         with transaction.atomic():
-            cursor.execute("DELETE FROM HAS_RELATIONSHIP WHERE ticket_id = %s;", [ticket_id])
-            cursor.execute("DELETE FROM TICKET WHERE ticket_id = %s;", [ticket_id])
+            cursor.execute(
+                "DELETE FROM HAS_RELATIONSHIP WHERE ticket_id = %s;", [ticket_id])
+            cursor.execute(
+                "DELETE FROM TICKET WHERE ticket_id = %s;", [ticket_id])
     return True

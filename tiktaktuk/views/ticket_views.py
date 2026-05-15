@@ -5,6 +5,7 @@ from tiktaktuk.services import user as user_service
 from django.db import connection
 from tiktaktuk.services.utils import dictfetchall
 
+
 def _get_orders_with_event(session_id):
     """
     Ambil semua order lengkap dengan event_id untuk modal create tiket.
@@ -161,17 +162,19 @@ def my_tickets(request):
     tickets = data.get('list_ticket', [])
     summary = data.get('summary', {})
 
-    orders = []
+    customers = []
     categories = []
     available_seats = []
     seating_type = None
 
     if role in ('administrator', 'organizer'):
-        orders = _get_orders_with_event(session_id)
+        customers = user_service.get_all_customers()
         categories = _get_categories_with_used(session_id)
         seen_event_ids = set()
-        for order in orders:
-            event_id = order.get('event_id')
+
+        # looping berdasarkan category untuk nyari event_id (karena orders udah ga dipake)
+        for cat in categories:
+            event_id = cat.get('tevent_id')
             if not event_id or event_id in seen_event_ids:
                 continue
             seen_event_ids.add(event_id)
@@ -185,10 +188,10 @@ def my_tickets(request):
         'username':        profile_data.get('username', ''),
         'tickets':         tickets,
         'summary':         summary,
-        'orders':          orders,
+        'customers':       customers,
         'categories':      categories,
         'available_seats': available_seats,
-        'seating_type':    seating_type,  
+        'seating_type':    seating_type,
     }
     return render(request, 'ticket/ticket.html', context)
 
@@ -200,21 +203,23 @@ def create_ticket(request):
 
     if request.method == 'POST':
         category_id = request.POST.get('category_id')
-        order_id    = request.POST.get('order_id')
-        seat_id     = request.POST.get('seat_id') or None
+        customer_id = request.POST.get('customer_id')
+        seat_id = request.POST.get('seat_id') or None
 
         print("SEAT ID DIPILIH:", seat_id)
 
         ticket_id, error_message = ticket_service.create_ticket(
             session_id=session_id,
             tcategory_id=category_id,
-            torder_id=order_id,
+            customer_id=customer_id,
             seat_id=seat_id,
         )
         if ticket_id:
-            messages.success(request, 'Tiket berhasil dibuat.')
+            messages.success(
+                request, 'Tiket & Order Lunas berhasil dibuat otomatis.')
         else:
-            messages.error(request, error_message or 'Gagal membuat tiket. Periksa data yang dimasukkan.')
+            messages.error(
+                request, error_message or 'Gagal membuat tiket. Periksa data yang dimasukkan.')
 
     return redirect('my_tickets')
 
@@ -230,7 +235,7 @@ def update_ticket(request, ticket_id):
             messages.error(request, 'Hanya Admin yang memiliki akses.')
             return redirect('my_tickets')
 
-        status  = request.POST.get('status')
+        status = request.POST.get('status')
         seat_id = request.POST.get('seat_id') or None
 
         ok = ticket_service.update_ticket(
