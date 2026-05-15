@@ -58,7 +58,7 @@ def _get_orders_with_event(session_id):
 def _get_categories_with_used(session_id):
     """
     get_all_ticket_categories() tidak include field 'used'.
-    Query sendiri dengan subquery hitung tiket terpakai.
+    Query sendiri dengan subquery hitung tiket terpakai dan ambil nama event.
     """
     role = user_service.get_user_role_by_session(session_id)
     from tiktaktuk.services.user import validate_session
@@ -70,6 +70,7 @@ def _get_categories_with_used(session_id):
         if role == 'administrator':
             cursor.execute("""
                 SELECT tc.category_id, tc.category_name, tc.quota, tc.price, tc.tevent_id,
+                       e.event_title,
                        COALESCE((
                            SELECT COUNT(*) FROM TICKET t
                            JOIN "ORDER" o ON t.torder_id = o.order_id
@@ -77,7 +78,8 @@ def _get_categories_with_used(session_id):
                              AND o.payment_status != 'Cancelled'
                        ), 0) AS used
                 FROM TICKET_CATEGORY tc
-                ORDER BY tc.price ASC;
+                JOIN EVENT e ON tc.tevent_id = e.event_id
+                ORDER BY e.event_title ASC, tc.price ASC;
             """)
         elif role == 'organizer':
             cursor.execute(
@@ -87,6 +89,7 @@ def _get_categories_with_used(session_id):
                 return []
             cursor.execute("""
                 SELECT tc.category_id, tc.category_name, tc.quota, tc.price, tc.tevent_id,
+                       e.event_title,
                        COALESCE((
                            SELECT COUNT(*) FROM TICKET t
                            JOIN "ORDER" o ON t.torder_id = o.order_id
@@ -96,7 +99,7 @@ def _get_categories_with_used(session_id):
                 FROM TICKET_CATEGORY tc
                 JOIN EVENT e ON tc.tevent_id = e.event_id
                 WHERE e.organizer_id = %s
-                ORDER BY tc.price ASC;
+                ORDER BY e.event_title ASC, tc.price ASC;
             """, [org_res[0]])
         else:
             return []
