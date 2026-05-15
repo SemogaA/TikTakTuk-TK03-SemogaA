@@ -3,6 +3,7 @@ from django.db import IntegrityError, connection, transaction
 from .utils import dictfetchall
 from .user import validate_session, get_user_role_by_session
 
+
 def create_event(session_id, event_title, event_datetime, venue_id, description, image_url, artists, ticket_categories, organizer_id=None):
     with connection.cursor() as cursor:
         user_id = validate_session(session_id)
@@ -68,7 +69,8 @@ def create_event(session_id, event_title, event_datetime, venue_id, description,
             error_msg = str(e).split('\n')[0]
             return False, error_msg, None
 
-def update_event(session_id, event_id, event_title, event_datetime, venue_id, description, image_url, artists=None, ticket_categories=None):
+
+def update_event(session_id, event_id, event_title, event_datetime, venue_id, description, image_url, artists=None, ticket_categories=None, organizer_id=None):
     with connection.cursor() as cursor:
         user_id = validate_session(session_id)
         role = get_user_role_by_session(session_id)
@@ -79,10 +81,13 @@ def update_event(session_id, event_id, event_title, event_datetime, venue_id, de
         try:
             with transaction.atomic():
                 if role == "administrator":
+                    if not organizer_id:
+                        return False, "Admin harus menentukan Organizer untuk event ini."
+
                     cursor.execute("""
-                        UPDATE EVENT SET event_title=%s, event_datetime=%s, venue_id=%s, description=%s, image_url=%s
+                        UPDATE EVENT SET event_title=%s, event_datetime=%s, venue_id=%s, description=%s, image_url=%s, organizer_id=%s
                         WHERE event_id=%s;
-                    """, [event_title, event_datetime, venue_id, description, image_url, event_id])
+                    """, [event_title, event_datetime, venue_id, description, image_url, organizer_id, event_id])
                 elif role == "organizer":
                     cursor.execute(
                         "SELECT organizer_id FROM ORGANIZER WHERE user_id = %s;", [user_id])
@@ -124,9 +129,10 @@ def update_event(session_id, event_id, event_title, event_datetime, venue_id, de
             error_msg = str(e).split('\n')[0]
             return False, error_msg
 
+
 def get_events(search_query=None, venue_id=None, artist_id=None, status='upcoming'):
     query = """
-        SELECT e.event_id, e.event_title, e.event_datetime, e.image_url, e.description, e.venue_id,
+        SELECT e.event_id, e.event_title, e.event_datetime, e.image_url, e.description, e.venue_id, e.organizer_id,
                v.venue_name, v.city, o.organizer_name,
                COALESCE(MIN(tc.price), 0) AS harga_tiket_mulai,
                STRING_AGG(DISTINCT a.name, ', ') AS daftar_artis,
@@ -195,6 +201,7 @@ def get_events(search_query=None, venue_id=None, artist_id=None, status='upcomin
                             {'name': parts[0], 'price': parts[1], 'quota': parts[2]})
 
         return events
+
 
 def get_event_by_id(event_id):
     with connection.cursor() as cursor:

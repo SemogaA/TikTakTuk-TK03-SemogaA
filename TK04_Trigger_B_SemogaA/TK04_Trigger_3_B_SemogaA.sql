@@ -45,6 +45,10 @@ RETURNS TABLE (
     sisa_kuota INT
 ) AS $$
 BEGIN
+    IF NOT EXISTS (SELECT 1 FROM EVENT WHERE event_id = p_event_id) THEN
+        RAISE EXCEPTION 'ERROR: Event dengan ID % tidak ditemukan.', p_event_id;
+    END IF;
+
     RETURN QUERY
     SELECT
         tc.category_id,

@@ -136,27 +136,38 @@ def delete_ticket_category(session_id, category_id):
             return False
 
 
-def get_all_ticket_categories(tevent_id=None):
+def get_all_ticket_categories(search_event_id=None):
     """
     ngambil kategori beserta sisa kuota dengan memanggil stored procedure SQL
     """
-    query = """
-        SELECT tc.category_id, tc.category_name, tc.quota, tc.price, tc.tevent_id, e.event_title, f.sisa_kuota
-        FROM TICKET_CATEGORY tc
-        JOIN EVENT e ON tc.tevent_id = e.event_id
-        JOIN LATERAL get_sisa_kuota_kategori(tc.tevent_id) f ON f.category_id = tc.category_id
-    """
-    params = []
-
-    if tevent_id:
-        query += " WHERE tc.tevent_id = %s"
-        params.append(tevent_id)
-
-    query += " ORDER BY e.event_title ASC, tc.category_name ASC;"
-
     with connection.cursor() as cursor:
-        cursor.execute(query, params)
-        return dictfetchall(cursor)
+        if search_event_id:
+            # panggil function langsung untuk nge-trigger error jika event tidak ada
+            cursor.execute(
+                "SELECT * FROM get_sisa_kuota_kategori(%s)", [search_event_id])
+
+            # kalau lolos (nggak error), ambil datanya gabung dengan nama event
+            query = """
+                SELECT tc.category_id, tc.category_name, tc.quota, tc.price, tc.tevent_id, e.event_title, f.sisa_kuota
+                FROM TICKET_CATEGORY tc
+                JOIN EVENT e ON tc.tevent_id = e.event_id
+                JOIN LATERAL get_sisa_kuota_kategori(tc.tevent_id) f ON f.category_id = tc.category_id
+                WHERE tc.tevent_id = %s
+                ORDER BY e.event_title ASC, tc.category_name ASC;
+            """
+            cursor.execute(query, [search_event_id])
+            return dictfetchall(cursor)
+        else:
+            # tampilan default jika search bar kosong
+            query = """
+                SELECT tc.category_id, tc.category_name, tc.quota, tc.price, tc.tevent_id, e.event_title, f.sisa_kuota
+                FROM TICKET_CATEGORY tc
+                JOIN EVENT e ON tc.tevent_id = e.event_id
+                JOIN LATERAL get_sisa_kuota_kategori(tc.tevent_id) f ON f.category_id = tc.category_id
+                ORDER BY e.event_title ASC, tc.category_name ASC;
+            """
+            cursor.execute(query)
+            return dictfetchall(cursor)
 
 
 def get_ticket_category_by_id(category_id):

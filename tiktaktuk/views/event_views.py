@@ -42,6 +42,9 @@ def list_view(request):
             context['dashboard'] = {'role': role}
             context['username'] = profile_data['username']
 
+            if role == 'administrator':
+                context['organizers'] = user_service.get_all_organizers()
+
     return render(request, 'event/event_list.html', context)
 
 
@@ -59,6 +62,8 @@ def create_view(request):
         description = request.POST.get('description')
         image_url = request.POST.get('image_url', '')
 
+        organizer_id = request.POST.get('organizer_id')
+
         artist_ids = request.POST.getlist('artists')
         artists = [{'artist_id': a_id, 'role': 'Main'} for a_id in artist_ids]
 
@@ -73,7 +78,7 @@ def create_view(request):
                     {'category_name': n, 'price': p, 'quota': q})
 
         is_success, message, event_id = event_service.create_event(
-            session_id, event_title, event_datetime, venue_id, description, image_url, artists, ticket_categories
+            session_id, event_title, event_datetime, venue_id, description, image_url, artists, ticket_categories, organizer_id
         )
 
         # trigger POSTGRESQL error akan muncul di sini via messages.error
@@ -101,6 +106,8 @@ def update_view(request, event_id):
         description = request.POST.get('description')
         image_url = request.POST.get('image_url', '')
 
+        organizer_id = request.POST.get('organizer_id')
+
         artist_ids = request.POST.getlist('artists')
         artists = [{'artist_id': a_id, 'role': 'Main'} for a_id in artist_ids]
 
@@ -115,7 +122,7 @@ def update_view(request, event_id):
                     {'category_name': n, 'price': p, 'quota': q})
 
         is_success, message = event_service.update_event(
-            session_id, event_id, event_title, event_datetime, venue_id, description, image_url, artists, ticket_categories
+            session_id, event_id, event_title, event_datetime, venue_id, description, image_url, artists, ticket_categories, organizer_id
         )
 
         # trigger POSTGRESQL error akan muncul di sini via messages.error

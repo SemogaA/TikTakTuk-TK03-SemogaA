@@ -1,154 +1,183 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="max-w-6xl mx-auto mt-8 px-4 font-sans mb-12">
-    
+  <div class="max-w-6xl mx-auto mt-8 px-4 font-sans mb-12">
     <div class="flex justify-between items-end mb-8">
-        <div>
-            <h1 class="text-3xl font-bold text-slate-900 tracking-tight">Kategori Tiket</h1>
-            <p class="text-sm text-slate-500 mt-1">Kelola kategori dan harga tiket per acara</p>
-        </div>
-        
-        {% if role == 'administrator' or role == 'organizer' %}
-        <a href="{% url 'category_create' %}" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-full text-sm font-bold transition shadow-md flex items-center gap-2">
-            <span>+</span> Tambah Kategori
-        </a>
-        {% endif %}
+      <div>
+        <h1 class="text-3xl font-bold text-slate-900 tracking-tight">Kategori Tiket</h1>
+        <p class="text-sm text-slate-500 mt-1">Kelola kategori dan harga tiket per acara</p>
+      </div>
+
+      {% if role == 'administrator' or role == 'organizer' %}
+        <a href="{% url 'category_create' %}" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-full text-sm font-bold transition shadow-md flex items-center gap-2"><span>+</span> Tambah Kategori</a>
+      {% endif %}
     </div>
 
+    {% if messages %}
+      <div class="mb-6 space-y-2">
+        {% for message in messages %}
+          <div class="p-4 rounded-xl flex items-center gap-3 text-sm font-bold shadow-sm 
+            {% if message.tags == 'error' %}
+              bg-red-50 text-red-600 border border-red-200
+
+            {% else %}
+              bg-emerald-50 text-emerald-600 border border-emerald-200
+            {% endif %}">
+            {% if message.tags == 'error' %}
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+            {% else %}
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+            {% endif %}
+
+            {{ message }}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Total Kategori</p>
-            <p class="text-3xl font-black text-slate-800">{{ total_categories }}</p>
-        </div>
-        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Total Kuota</p>
-            <p class="text-3xl font-black text-slate-800">
-                {% if categories %}
-                    2,030 
-                {% else %}0{% endif %}
-            </p>
-        </div>
-        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Harga Tertinggi</p>
-            <p class="text-xl font-black text-slate-800">Rp 2,000,000</p>
-        </div>
+      <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Total Kategori</p>
+        <p class="text-3xl font-black text-slate-800">{{ total_categories }}</p>
+      </div>
+      <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Total Kuota</p>
+        <p class="text-3xl font-black text-slate-800">
+          {% if categories %}
+            2,030
+          {% else %}
+            0
+          {% endif %}
+        </p>
+      </div>
+      <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Harga Tertinggi</p>
+        <p class="text-xl font-black text-slate-800">Rp 2,000,000</p>
+      </div>
     </div>
 
     <div class="bg-white shadow-sm rounded-2xl border border-slate-200 overflow-hidden p-6">
-        
-        <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
-            <div class="flex items-center gap-3 w-full md:w-auto">
-                <div class="relative flex-grow md:w-64">
-                    <input type="text" placeholder="Cari kategori..." class="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
-                    <span class="absolute left-3 top-2.5 text-slate-400">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
-                    </span>
-                </div>
-                <select class="border border-slate-200 rounded-xl px-4 py-2 text-sm text-slate-600 focus:outline-none bg-slate-50">
-                    <option>Semua Acara</option>
-                </select>
-            </div>
-            
-            <div class="flex items-center gap-2">
-                <p class="text-xs text-slate-400 font-medium mr-2">{{ total_categories }} kategori ditemukan</p>
-                <div class="bg-slate-100 p-1 rounded-full flex text-[10px] font-bold">
-                    <button class="bg-white shadow-sm text-slate-800 px-4 py-1.5 rounded-full">Tabel</button>
-                    <button class="text-slate-500 px-4 py-1.5 rounded-full">Daftar</button>
-                </div>
-            </div>
+      <form method="GET" action="{% url 'category_list' %}" class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4 w-full">
+        <div class="flex items-center gap-3 w-full md:w-auto flex-grow">
+          <div class="relative flex-grow md:w-96">
+            <input type="text" name="search" value="{{ search_query }}" placeholder="Cari berdasarkan ID Event (UUID)..." class="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition" />
+            <span class="absolute left-3 top-2.5 text-slate-400">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+              </svg>
+            </span>
+          </div>
+          <button type="submit" class="bg-slate-800 text-white font-bold px-6 py-2 rounded-xl hover:bg-slate-900 transition shadow-sm text-sm">Cari</button>
+          {% if search_query %}
+            <a href="{% url 'category_list' %}" class="bg-slate-100 text-slate-600 font-bold px-4 py-2 rounded-xl hover:bg-slate-200 transition text-center shadow-sm text-sm">Reset</a>
+          {% endif %}
         </div>
 
-        <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse">
-                <thead>
-                    <tr class="border-b border-slate-100">
-                        <th class="pb-4 font-bold text-[10px] text-slate-400 uppercase tracking-widest">Kategori</th>
-                        <th class="pb-4 font-bold text-[10px] text-slate-400 uppercase tracking-widest">Acara</th>
-                        <th class="pb-4 font-bold text-[10px] text-slate-400 uppercase tracking-widest">Harga</th>
-                        <th class="pb-4 font-bold text-[10px] text-slate-400 uppercase tracking-widest">Kuota</th>
-                        <th class="pb-4 font-bold text-[10px] text-slate-400 uppercase tracking-widest">Sisa Kuota</th>
-                        
-                        {% if role == 'administrator' or role == 'organizer' %}
-                        <th class="pb-4 font-bold text-[10px] text-slate-400 uppercase tracking-widest text-center">Aksi</th>
-                        {% endif %}
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-50">
-                    {% for cat in categories|dictsort:"tevent_id"|dictsort:"category_name" %}
-                    <tr class="hover:bg-slate-50 transition-colors">
-                        <td class="py-4 font-black text-slate-800 text-sm">{{ cat.category_name }}</td>
-                        <td class="py-4 text-sm text-slate-700 font-medium">{{ cat.event_title }}</td>
-                        <td class="py-4 font-bold text-blue-600 text-sm">Rp {{ cat.price }}</td>
-                        <td class="py-4 text-sm text-slate-600">{{ cat.quota }}</td>
-                        
-                        <td class="py-4 text-sm text-slate-600">
-                            <span class="bg-blue-50 text-blue-600 px-2 py-1 rounded font-bold">
-                                {{ cat.sisa_kuota }} tiket
-                            </span>
-                        </td>
-                        
-                        {% if role == 'administrator' or role == 'organizer' %}
-                        <td class="py-4 text-center">
-                            <div class="flex justify-center gap-2">
-                                <a href="{% url 'category_update' cat.category_id %}" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 transition text-xs font-bold">
-                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
-                                    Edit
-                                </a>
-                                <button onclick="openDeleteModal('{{ cat.category_id }}', '{{ cat.category_name|escapejs }}')" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-rose-100 text-rose-500 hover:bg-rose-50 transition text-xs font-bold">
-                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
-                                    Hapus
-                                </button>
-                            </div>
-                        </td>
-                        {% endif %}
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="6" class="py-12 text-center text-slate-400 italic">Belum ada kategori tiket.</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+        <div class="flex items-center gap-2">
+          <p class="text-xs text-slate-400 font-medium">{{ total_categories }} kategori ditemukan</p>
         </div>
+      </form>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="border-b border-slate-100">
+              <th class="pb-4 font-bold text-[10px] text-slate-400 uppercase tracking-widest">Kategori</th>
+              <th class="pb-4 font-bold text-[10px] text-slate-400 uppercase tracking-widest">Acara</th>
+              <th class="pb-4 font-bold text-[10px] text-slate-400 uppercase tracking-widest">Harga</th>
+              <th class="pb-4 font-bold text-[10px] text-slate-400 uppercase tracking-widest">Kuota</th>
+              <th class="pb-4 font-bold text-[10px] text-slate-400 uppercase tracking-widest">Sisa Kuota</th>
+
+              {% if role == 'administrator' or role == 'organizer' %}
+                <th class="pb-4 font-bold text-[10px] text-slate-400 uppercase tracking-widest text-center">Aksi</th>
+              {% endif %}
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-50">
+            {% for cat in categories|dictsort:'tevent_id'|dictsort:'category_name' %}
+              <tr class="hover:bg-slate-50 transition-colors">
+                <td class="py-4 font-black text-slate-800 text-sm">{{ cat.category_name }}</td>
+                <td class="py-4 text-sm text-slate-700 font-medium">
+                  {{ cat.event_title }}
+                  <br />
+                  <span class="text-[10px] text-slate-400 font-mono">ID: {{ cat.tevent_id }}</span>
+                </td>
+                <td class="py-4 font-bold text-blue-600 text-sm">Rp {{ cat.price }}</td>
+                <td class="py-4 text-sm text-slate-600">{{ cat.quota }}</td>
+
+                <td class="py-4 text-sm text-slate-600">
+                  <span class="bg-blue-50 text-blue-600 px-2 py-1 rounded font-bold">{{ cat.sisa_kuota }} tiket</span>
+                </td>
+
+                {% if role == 'administrator' or role == 'organizer' %}
+                  <td class="py-4 text-center">
+                    <div class="flex justify-center gap-2">
+                      <a href="{% url 'category_update' cat.category_id %}" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 transition text-xs font-bold">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                        </svg>Edit
+                      </a>
+                      <button onclick="openDeleteModal('{{ cat.category_id }}', '{{ cat.category_name|escapejs }}')" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-rose-100 text-rose-500 hover:bg-rose-50 transition text-xs font-bold">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                        </svg>Hapus
+                      </button>
+                    </div>
+                  </td>
+                {% endif %}
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="6" class="py-12 text-center text-slate-400 italic">Belum ada kategori tiket atau event tidak ditemukan.</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
     </div>
-</div>
+  </div>
 
-<div id="deleteModal" class="fixed inset-0 bg-slate-900/40 hidden items-center justify-center z-50 backdrop-blur-sm px-4">
+  <div id="deleteModal" class="fixed inset-0 bg-slate-900/40 hidden items-center justify-center z-50 backdrop-blur-sm px-4">
     <div class="bg-white rounded-3xl max-w-sm w-full shadow-2xl overflow-hidden p-8 text-center">
-        <div class="w-16 h-16 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
-        </div>
-        <h3 class="text-xl font-black text-slate-900 mb-2">Hapus Kategori?</h3>
-        <p class="text-slate-500 text-sm mb-6">Apakah Anda yakin ingin menghapus kategori ini? Data ini tidak dapat dikembalikan.</p>
-        
-        <div class="bg-slate-50 p-4 rounded-2xl mb-6 text-left border border-slate-100">
-            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Kategori Terpilih:</p>
-            <p class="text-xs font-mono text-slate-500" id="delId"></p>
-            <p class="font-black text-slate-800" id="delName"></p>
-        </div>
+      <div class="w-16 h-16 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-4">
+        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+        </svg>
+      </div>
+      <h3 class="text-xl font-black text-slate-900 mb-2">Hapus Kategori?</h3>
+      <p class="text-slate-500 text-sm mb-6">Apakah Anda yakin ingin menghapus kategori ini? Data ini tidak dapat dikembalikan.</p>
 
-        <div class="flex gap-3">
-            <button onclick="closeDeleteModal()" class="flex-1 py-3 rounded-full border border-slate-200 text-slate-600 font-bold hover:bg-slate-50 transition">Batal</button>
-            <form id="deleteForm" method="POST" action="" class="flex-1">
-                {% csrf_token %}
-                <button type="submit" class="w-full py-3 rounded-full bg-rose-600 text-white font-bold hover:bg-rose-700 shadow-lg shadow-rose-600/20 transition">Hapus</button>
-            </form>
-        </div>
+      <div class="bg-slate-50 p-4 rounded-2xl mb-6 text-left border border-slate-100">
+        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Kategori Terpilih:</p>
+        <p class="text-xs font-mono text-slate-500" id="delId"></p>
+        <p class="font-black text-slate-800" id="delName"></p>
+      </div>
+
+      <div class="flex gap-3">
+        <button onclick="closeDeleteModal()" class="flex-1 py-3 rounded-full border border-slate-200 text-slate-600 font-bold hover:bg-slate-50 transition">Batal</button>
+        <form id="deleteForm" method="POST" action="" class="flex-1">
+          {% csrf_token %}
+          <button type="submit" class="w-full py-3 rounded-full bg-rose-600 text-white font-bold hover:bg-rose-700 shadow-lg shadow-rose-600/20 transition">Hapus</button>
+        </form>
+      </div>
     </div>
-</div>
+  </div>
 
-<script>
+  <script>
     function openDeleteModal(id, name) {
-        document.getElementById('delId').innerText = "ID: " + id;
-        document.getElementById('delName').innerText = name;
-        document.getElementById('deleteForm').action = "/category/delete/" + id + "/";
-        document.getElementById('deleteModal').classList.remove('hidden');
-        document.getElementById('deleteModal').classList.add('flex');
+      document.getElementById('delId').innerText = 'ID: ' + id
+      document.getElementById('delName').innerText = name
+      document.getElementById('deleteForm').action = '/category/delete/' + id + '/'
+      document.getElementById('deleteModal').classList.remove('hidden')
+      document.getElementById('deleteModal').classList.add('flex')
     }
     function closeDeleteModal() {
-        document.getElementById('deleteModal').classList.remove('flex');
-        document.getElementById('deleteModal').classList.add('hidden');
+      document.getElementById('deleteModal').classList.remove('flex')
+      document.getElementById('deleteModal').classList.add('hidden')
     }
-</script>
+  </script>
 {% endblock %}

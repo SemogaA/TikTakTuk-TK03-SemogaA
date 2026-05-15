@@ -472,3 +472,13 @@ def change_user_password(session_id, old_password, new_password):
         except Exception as e:
             connection.rollback()
             raise e
+
+
+def get_all_organizers():
+    from django.db import connection
+    from tiktaktuk.services.utils import dictfetchall
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT organizer_id, organizer_name FROM ORGANIZER ORDER BY organizer_name ASC;")
+        return dictfetchall(cursor)
