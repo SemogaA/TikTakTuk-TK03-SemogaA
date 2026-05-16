@@ -49,8 +49,10 @@ BEGIN
 
     SELECT COUNT(*)
     INTO v_total_ticket
-    FROM TICKET
-    WHERE tcategory_id = NEW.tcategory_id;
+    FROM TICKET t
+    JOIN "ORDER" o ON t.torder_id = o.order_id
+    WHERE t.tcategory_id = NEW.tcategory_id
+      AND o.payment_status != 'Cancelled';
 
     IF v_total_ticket >= v_quota THEN
         RAISE EXCEPTION
